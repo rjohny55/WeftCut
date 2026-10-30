@@ -73,3 +73,10 @@ describe('texture lane read', () => {
     await expect(readMotifTexture({ hash: cache.hash, frame: 1, div: 4 })).rejects.toMatchObject({ name: 'MotifTransportError', lane: 'texture', reason: 'error' });
   });
 });
+
+it('preserves skipped optional persistence without marking a live GPU frame saved', async () => {
+  replies = [{ bitmap: {width: 2}, persisted: false, cacheWriteSkipped: true }];
+  await expect(captureMotifResult({motifId: 'synthetic'})).resolves.toEqual({
+    bitmap: {width: 2}, persisted: false, scaleDiv: 'live', cacheWriteSkipped: true,
+  });
+});

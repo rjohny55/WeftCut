@@ -5,8 +5,9 @@ import type { MotifReaderDiv } from '../../../shared/motifs/readerProtocol';
  * whatever was asked, because a frame that is not stored has no smaller form.
  * L0 stores it as divisor 1 (ADR 0154). */
 export type MotifFrameDiv = MotifReaderDiv | 'live';
-export interface CapturedFrame { bitmap: ImageBitmap; persisted: boolean; scaleDiv: MotifFrameDiv }
+export interface CapturedFrame { bitmap: ImageBitmap; persisted: boolean; scaleDiv: MotifFrameDiv; cacheWriteSkipped?: boolean }
 interface FrameReply {
+  cacheWriteSkipped?: boolean;
   bitmap: ImageBitmap | null;
   persisted: boolean;
   /** Capture only: the frame is on disk and main sent no pixels. */
@@ -69,8 +70,8 @@ export function captureMotifResult(capture: Record<string, unknown>, scaleDiv: M
 }
 
 async function captureOnce(capture: Record<string, unknown>, scaleDiv: MotifReaderDiv, recaptured: boolean): Promise<CapturedFrame> {
-  const { bitmap, persisted, stored } = await request({ capture });
-  if (bitmap) return { bitmap, persisted, scaleDiv: 'live' };
+  const { bitmap, persisted, stored, cacheWriteSkipped } = await request({ capture });
+  if (bitmap) return { bitmap, persisted, scaleDiv: 'live', ...(cacheWriteSkipped ? {cacheWriteSkipped: true} : {}) };
   if (!stored) throw new Error("Motif capture returned no frame");
   // Main sent no pixels (ADR 0154): read the frame through the reader. A
   // joined bake persisted at `bake`; otherwise the `cache` re-check found it.
@@ -96,6 +97,7 @@ export function controlStoredMotifCapture(control: MotifCaptureControl): void {
 }
 
 interface FramePortMessage {
+  cacheWriteSkipped?: boolean;
   id: number;
   bitmap?: ImageBitmap | null;
   persisted?: boolean;
@@ -118,6 +120,7 @@ function request(args: Record<string, unknown>): Promise<FrameReply> {
       else request.resolve({
         bitmap: data.bitmap ?? null, persisted: data.persisted === true,
         stored: data.stored === true, unavailable: data.unavailable === true,
+        ...(data.cacheWriteSkipped === true ? {cacheWriteSkipped: true} : {}),
         ...(data.timing ? { timing: data.timing } : {}),
         ...(typeof data.importMs === 'number' ? { importMs: data.importMs } : {}),
       });

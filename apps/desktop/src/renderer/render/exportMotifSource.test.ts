@@ -86,6 +86,18 @@ describe('streamed Motif selection', () => {
     expect(sharedBakedKeyIndex.add).toHaveBeenCalledWith(expect.any(String), 60);
   });
 
+  it('does not PNG-readback GPU frames that skip optional persistence', async () => {
+    const b = bitmap();
+    vi.mocked(sharedBakedKeyIndex.has).mockReturnValue(false);
+    vi.mocked(captureMotifFrameResult).mockResolvedValue({ bitmap: b, persisted: false, scaleDiv: 'live', cacheWriteSkipped: true });
+    const canvas = vi.fn(() => { throw new Error('Unexpected GPU readback'); });
+    vi.stubGlobal('OffscreenCanvas', canvas);
+    expect(await planExportMotifFrame(summary(), 0, 'export-token')[0]!.read(new AbortController().signal)).toBe(b);
+    expect(canvas).not.toHaveBeenCalled();
+    expect(sharedMotifFrameCache.writeFrame).not.toHaveBeenCalled();
+    expect(sharedBakedKeyIndex.add).not.toHaveBeenCalled();
+  });
+
   // The reader answers a missing or corrupt frame alike: null.
   it.each(['missing or corrupt', 'unbaked'])('repairs a %s frame and makes it reusable', async kind => {
     const b = bitmap(); vi.mocked(captureMotifFrameResult).mockResolvedValue({ bitmap: b, persisted: false, scaleDiv: 'live' });

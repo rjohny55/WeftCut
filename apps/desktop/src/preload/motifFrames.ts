@@ -7,6 +7,7 @@ import { MOTIF_READER_CONNECT, MOTIF_READER_PORT, MOTIF_READER_RESET, type Motif
 export function installMotifFrames(
   imported: (key: string) => SharedTextureImported | undefined,
   finishRead: (bitmap: ImageBitmap) => Promise<ImageBitmap>,
+  takeSnapshot?: (token: string) => ImageBitmap,
 ): void {
   // The Motif reader utility's port goes to the page, which hands it to its
   // reader worker (ADR 0154); pixels never pass through here.
@@ -33,7 +34,10 @@ export function installMotifFrames(
           return
         }
         let importMs: number | undefined
-        if (frame?.kind === 'texture') {
+        if (frame?.kind === 'bitmap') {
+          if (!takeSnapshot) throw new Error('Motif GPU snapshot receiver unavailable')
+          bitmap = takeSnapshot(frame.token)
+        } else if (frame?.kind === 'texture') {
           const start = performance.now()
           const texture = imported(frame.key)
           if (!texture) throw new Error('Motif texture import missing')
@@ -47,6 +51,7 @@ export function installMotifFrames(
         // `stored`: no pixels; the renderer reads the frame through its reader.
         port.postMessage({
           id: data.id, bitmap, persisted: frame?.persisted === true,
+          ...(frame?.cacheWriteSkipped ? { cacheWriteSkipped: true } : {}),
           ...(frame?.kind === 'stored' ? { stored: true } : {}),
           ...(frame?.kind === 'texture' ? { timing: frame.timing, importMs } : {}),
         }, bitmap ? [bitmap] : [])
