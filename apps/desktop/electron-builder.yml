@@ -58,6 +58,8 @@ asarUnpack:
   - "**/node_modules/@weftcut/native-decode/*.so.*"
   - "**/node_modules/@weftcut/native-decode/*.dylib"
 extraResources:
+  - from: native/gpu-export/THIRD-PARTY-NOTICES.txt
+    to: native-decode/GPU-EXPORT-NOTICES.txt
   # The weftcut-mcp stdio shim (single self-contained bundle, built by
   # scripts/build-cli.mjs). The app copies it to <userData>/cli/ at startup —
   # THAT copy is what client configs reference (stable across upgrades, and

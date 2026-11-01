@@ -46,7 +46,7 @@ if (process.platform === 'win32' && !env.LIBCLANG_PATH) {
 // resolve. (The Chromium-libffmpeg symbol collision is defeated at LOAD time via
 // RTLD_DEEPBIND in main/native-decode.ts, not here — GNU ld ignores `-z
 // deepbind` and there is no DF_1 flag for it.)
-if (process.platform === 'linux') {
+if (process.platform === 'linux' && process.env.WEFTCUT_BUILD_LINUX_GPU_EXPORT === '1') {
   const rpath = '-C link-arg=-Wl,--disable-new-dtags -C link-arg=-Wl,-rpath,$ORIGIN'
   env.RUSTFLAGS = env.RUSTFLAGS ? `${env.RUSTFLAGS} ${rpath}` : rpath
 }
@@ -91,4 +91,7 @@ if (process.platform === 'linux' || process.platform === 'darwin') {
     copied++
   }
   console.log(`napi:build:decode — co-located ${copied} shared-library entries in ${outDir}`)
+}
+if (process.platform === 'linux') {
+  execSync('node scripts/build-linux-gpu-export.mjs', { cwd: root, stdio: 'inherit', env });
 }

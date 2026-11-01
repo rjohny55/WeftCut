@@ -38,6 +38,7 @@
     "test:watch": "vitest --exclude '**/*.browser.test.ts'",
     "napi:build": "node scripts/napi-build-core.mjs",
     "napi:build:decode": "node scripts/napi-build-decode.mjs",
+    "napi:build:gpu": "node scripts/build-linux-gpu-export.mjs",
     "analyzer:build": "cargo build --manifest-path native/Cargo.toml --bin media_conformance --features jobs,export",
     "mcp:catalog:snapshot": "node scripts/snapshot-mcp-catalog.mjs",
     "mcp:catalog:check": "node scripts/snapshot-mcp-catalog.mjs && git diff --exit-code fixtures/mcp/rust-catalog-snapshot.json",
