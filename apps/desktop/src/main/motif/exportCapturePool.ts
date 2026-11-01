@@ -1,8 +1,8 @@
 import { CAPTURE_SUPERSEDED_MESSAGE } from '../../shared/motifs/captureErrors';
 import {exportMotifHostLimit} from '../../shared/motifs/exportHostLimit';
 
-interface Slot<T> { value: T; affinity: string; size: number; busy: boolean; used: number }
-interface Job<R> { affinity: string; size: number; key?: string; current(): boolean; run(value: unknown): Promise<R>; resolve(value: R): void; reject(error: unknown): void }
+interface Slot<T> { value: T; affinity: string; documentAffinity?: string; size: number; busy: boolean; used: number }
+interface Job<R> { affinity: string; documentAffinity?: string; size: number; key?: string; current(): boolean; run(value: unknown): Promise<R>; resolve(value: R): void; reject(error: unknown): void }
 
 /** Export-only resident pages. Each page owns one clock and renders serially;
  * independent pages may overlap. Slots are admitted by the native memory
@@ -13,23 +13,25 @@ export class ExportCapturePool<T> {
   private running = 0;
   private sequence = 0;
   private stopped = false;
-  private readonly counts = {created: 0, reassignments: 0, capacityRefusals: 0, peakHosts: 0};
+  private readonly counts = {created: 0, reassignments: 0, documentReuses: 0, capacityRefusals: 0, peakHosts: 0};
   constructor(private readonly deps: {
     create(size: number): T;
     close(value: T): void;
     capacity(error: unknown): boolean;
     maxHosts?: number;
     maxConcurrent?: number;
+    /** Victim selection only; never prevents admitting a new exact affinity. */
+    preferDocument?: boolean;
   }) {}
 
   get retired(): boolean { return this.stopped; }
   get diagnostics() { return { hosts: this.slots.length, running: this.running, queued: this.queue.length,
     maxHosts: exportMotifHostLimit(this.deps.maxHosts), ...this.counts }; }
 
-  capture<R>(affinity: string, size: number, key: string | undefined, current: () => boolean, run: (value: T) => Promise<R>): Promise<R> {
+  capture<R>(affinity: string, size: number, key: string | undefined, current: () => boolean, run: (value: T) => Promise<R>, documentAffinity?: string): Promise<R> {
     if (this.stopped || !current()) return Promise.reject(new Error(CAPTURE_SUPERSEDED_MESSAGE));
     return new Promise<R>((resolve, reject) => {
-      this.queue.push({ affinity, size, key, current, run: value => run(value as T), resolve: value => resolve(value as R), reject });
+      this.queue.push({ affinity, ...(documentAffinity === undefined ? {} : {documentAffinity}), size, key, current, run: value => run(value as T), resolve: value => resolve(value as R), reject });
       this.pump();
     });
   }
@@ -69,7 +71,8 @@ export class ExportCapturePool<T> {
       let slot = this.slots.find(slot => !slot.busy && slot.affinity === job.affinity && slot.size >= job.size);
       if (!slot && this.slots.length < exportMotifHostLimit(this.deps.maxHosts)) {
         try {
-          slot = { value: this.deps.create(job.size), affinity: job.affinity, size: job.size, busy: false, used: 0 };
+          slot = { value: this.deps.create(job.size), affinity: job.affinity,
+            ...(job.documentAffinity === undefined ? {} : {documentAffinity:job.documentAffinity}), size: job.size, busy: false, used: 0 };
           this.slots.push(slot);
           this.counts.created++; this.counts.peakHosts = Math.max(this.counts.peakHosts,this.slots.length);
         } catch (error) {
@@ -82,7 +85,14 @@ export class ExportCapturePool<T> {
       }
       if (!slot) {
         const idle = this.slots.filter(slot => !slot.busy).sort((a, b) => a.used - b.used);
-        slot = idle.find(slot => slot.size >= job.size);
+        // Preserve a warm document even when its props affinity changes: main
+        // will rerun setup, but need not navigate to a foreign package. Keep
+        // growth/exact-hit behavior above unchanged; this ranks victims only.
+        if(this.deps.preferDocument && job.documentAffinity !== undefined) {
+          slot = idle.find(slot => slot.documentAffinity === job.documentAffinity && slot.size >= job.size);
+          if(slot)this.counts.documentReuses++;
+        }
+        slot ??= idle.find(slot => slot.size >= job.size);
         if (!slot && idle[0]) {
           this.remove(idle[0]);
           continue; // return the old lease before admitting a larger page
@@ -92,6 +102,8 @@ export class ExportCapturePool<T> {
       this.queue.splice(index, 1);
       if(slot.affinity!==job.affinity)this.counts.reassignments++;
       slot.affinity = job.affinity; slot.busy = true; slot.used = ++this.sequence;
+      if(job.documentAffinity===undefined)delete slot.documentAffinity;
+      else slot.documentAffinity=job.documentAffinity;
       this.running++;
       const active = slot;
       void Promise.resolve().then(() => {

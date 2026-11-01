@@ -567,6 +567,7 @@ function exportPool(parent: number) {
       close: slot => { teardownHost(slot); slot.release() },
       capacity: isResourceCapacityError,
       maxHosts: exportHostLimits.get(parent) ?? 3, maxConcurrent: 2,
+      preferDocument: exportMotifHostLimit(process.env.WEFTCUT_EXPORT_MOTIF_HOSTS) !== 3,
     })
     exportPools.set(parent, pool)
   }
@@ -578,6 +579,7 @@ export function captureExportMotifTexture<T>(a: CaptureArgs, parent: number, con
   const pool = exportPool(parent)
   const current = () => !pool.retired && isCurrent()
   const affinity = JSON.stringify(['gpu', a.motifId, a.contentHash, a.propsJson, a.width, a.height, a.fpsNum, a.fpsDen])
+  const documentAffinity = JSON.stringify(['gpu', a.motifId, a.contentHash, a.width, a.height, a.fpsNum, a.fpsDen])
   const packageBytes = /^[0-9a-f]{64}$/.test(a.contentHash) ? motifStore?.pinnedPackageBytes?.(a.motifId, a.contentHash) ?? 0 : 0
   const residentMiB = Math.ceil(128 + (a.width * a.height * 28 + packageBytes) / 1048576)
   const queuedAt = performance.now()
@@ -605,7 +607,7 @@ export function captureExportMotifTexture<T>(a: CaptureArgs, parent: number, con
       counters.completed++; return result
     } catch (error) { counters.failed++; throw error }
     finally { counters.captureMs += performance.now() - started }
-  })
+  }, documentAffinity)
 }
 
 export function captureExportMotifFrameB64(a: CaptureArgs, parent: number, key?: string, _high?: boolean, isCurrent: () => boolean = () => true): Promise<string> {
@@ -617,6 +619,7 @@ export function captureExportMotifFrameB64(a: CaptureArgs, parent: number, key?:
   // but execute at most two: three simultaneous screenshots contend with
   // compositor readback on the shared GPU. Hash/props/size/fps avoids setup churn.
   const affinity = JSON.stringify([a.motifId, a.contentHash, a.propsJson, a.width, a.height, a.fpsNum, a.fpsDen])
+  const documentAffinity = JSON.stringify(['png', a.motifId, a.contentHash, a.width, a.height, a.fpsNum, a.fpsDen])
   const packageBytes = /^[0-9a-f]{64}$/.test(a.contentHash) ? motifStore?.pinnedPackageBytes?.(a.motifId, a.contentHash) ?? 0 : 0
   // Three extra RGBA-equivalent surfaces bound one base64 PNG string even
   // with UTF-16 storage. It never becomes a growing per-frame cache.
@@ -650,7 +653,7 @@ export function captureExportMotifFrameB64(a: CaptureArgs, parent: number, key?:
       counters.completed++; return result
     } catch (error) { counters.failed++; throw error }
     finally { counters.captureMs += performance.now() - started }
-  })
+  }, documentAffinity)
 }
 
 export function retireExportCaptureHosts(parent: number): void {

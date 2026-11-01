@@ -15,6 +15,65 @@ function fixture(capacity = 3) {
 }
 
 describe('bounded export capture pages', () => {
+  it('prefers an idle matching document over an older foreign document only when choosing a victim',async()=>{
+    let serial=0;
+    const create=vi.fn(()=>({id:++serial})),pool=new ExportCapturePool({create,close:vi.fn(),capacity:()=>false,maxHosts:2,preferDocument:true});
+    const read=(affinity:string,document:string)=>pool.capture(affinity,64,undefined,()=>true,async host=>host.id,document);
+    expect(await read('a:p1','package-a:v1:gpu:1080p30')).toBe(1);await tick();
+    expect(await read('b:p1','package-b:v1:gpu:1080p30')).toBe(2);await tick();
+    // Make A newest: the old generic LRU would now evict B for A's new props.
+    expect(await read('a:p1','package-a:v1:gpu:1080p30')).toBe(1);await tick();
+    expect(await read('a:p2','package-a:v1:gpu:1080p30')).toBe(1);await tick();
+    expect(await read('b:p1','package-b:v1:gpu:1080p30')).toBe(2);await tick();
+    expect(create).toHaveBeenCalledTimes(2);expect(pool.diagnostics.documentReuses).toBe(1);pool.retire();
+  });
+  it('still grows and returns exact props affinities before reusing their shared document',async()=>{
+    let serial=0;
+    const pool=new ExportCapturePool({create:()=>({id:++serial}),close:vi.fn(),capacity:()=>false,maxHosts:2,preferDocument:true});
+    const read=(a:string)=>pool.capture(a,64,undefined,()=>true,async host=>host.id,'same-package');
+    expect(await read('p1')).toBe(1);await tick();
+    expect(await read('p2')).toBe(2);await tick();
+    expect(await read('p1')).toBe(1);await tick();
+    expect(await read('p2')).toBe(2);await tick();
+    expect(pool.diagnostics).toMatchObject({created:2,documentReuses:0});pool.retire();
+  });
+  it('keeps the default generic LRU even when explicit document identities are supplied',async()=>{
+    let serial=0;
+    const pool=new ExportCapturePool({create:()=>({id:++serial}),close:vi.fn(),capacity:()=>false,maxHosts:2});
+    const read=(a:string,d:string)=>pool.capture(a,64,undefined,()=>true,async host=>host.id,d);
+    await read('a1','doc-a');await tick();await read('b1','doc-b');await tick();await read('a1','doc-a');await tick();
+    expect(await read('a2','doc-a')).toBe(2);await tick();
+    expect(pool.diagnostics.documentReuses).toBe(0);pool.retire();
+  });
+  it('does not prefer a previous package revision, dimensions, frame rate or transport',async()=>{
+    for(const changed of ['a:v2:1080p:30:gpu','a:v1:4k:30:gpu','a:v1:1080p:60:gpu','a:v1:1080p:30:png']){
+      let serial=0;
+      const pool=new ExportCapturePool({create:()=>({id:++serial}),close:vi.fn(),capacity:()=>false,maxHosts:2,preferDocument:true});
+      const read=(a:string,d:string)=>pool.capture(a,64,undefined,()=>true,async host=>host.id,d);
+      await read('b1','b:v1');await tick();await read('a1','a:v1:1080p:30:gpu');await tick();
+      expect(await read('new',changed)).toBe(1);await tick();
+      expect(pool.diagnostics.documentReuses).toBe(0);pool.retire();
+    }
+  });
+  it('never chooses a busy matching document and still drains it on retirement',async()=>{
+    let serial=0;
+    const close=vi.fn(),a=deferred();
+    const pool=new ExportCapturePool({create:()=>({id:++serial}),close,capacity:()=>false,maxHosts:2,preferDocument:true});
+    const running=pool.capture('a1',64,undefined,()=>true,()=>a.promise,'doc-a');
+    await tick();
+    expect(await pool.capture('b1',64,undefined,()=>true,async host=>host.id,'doc-b')).toBe(2);await tick();
+    expect(await pool.capture('a2',64,undefined,()=>true,async host=>host.id,'doc-a')).toBe(2);await tick();
+    pool.retire();expect(close).toHaveBeenCalledTimes(1);
+    a.resolve('a');await running;await tick();expect(close).toHaveBeenCalledTimes(2);
+  });
+  it('keeps matching-document fallback when native admission refuses another page',async()=>{
+    let created=false;
+    const pool=new ExportCapturePool({create:()=>{if(created)throw Error('capacity');created=true;return {id:1};},
+      close:vi.fn(),capacity:(e:unknown)=>String(e).includes('capacity'),maxHosts:8,preferDocument:true});
+    await pool.capture('p1',64,undefined,()=>true,async host=>host.id,'doc');await tick();
+    expect(await pool.capture('p2',64,undefined,()=>true,async host=>host.id,'doc')).toBe(1);await tick();
+    expect(pool.diagnostics).toMatchObject({created:1,documentReuses:1,capacityRefusals:1});pool.retire();
+  });
   it('keeps eight repeating affinities warm without running more than two clocks',async()=>{
     let sequence=0,active=0,peak=0;
     const create=vi.fn(()=>({id:++sequence})),close=vi.fn();
