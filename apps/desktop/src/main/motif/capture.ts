@@ -10,6 +10,7 @@ import { ExportCapturePool } from './exportCapturePool.js'
 import { retryExportScreenshot } from './exportScreenshotRetry.js'
 import { reserveResources } from '../resources.js'
 import { isResourceCapacityError } from '../../shared/resource-policy.js'
+import {exportMotifHostLimit} from '../../shared/motifs/exportHostLimit.js'
 
 export interface CaptureArgs {
   motifId: string
@@ -34,6 +35,11 @@ const SETUP_TIMEOUT_MS = 30_000
 const READY_ATTEMPTS = 30
 const READY_POLL_MS = 100
 const MAX_BACKGROUND_WAIT_MS = 2000
+const exportHostLimits = new Map<number,number>()
+/** Called only after the owner-scoped native parent has admitted this plan. */
+export function configureExportCaptureHosts(parent:number,hosts:number):void {
+  exportHostLimits.set(parent,Math.min(exportMotifHostLimit(hosts),exportMotifHostLimit(process.env.WEFTCUT_EXPORT_MOTIF_HOSTS)))
+}
 
 const newCaptureCounters = () => ({ captures: 0, completed: 0, failed: 0, pageLoads: 0, hostBuilds: 0, textureCaptures: 0, pngCaptures: 0, exportCacheHits: 0, queueMs: 0, captureMs: 0, loadMs: 0, readyMs: 0, setupMs: 0, renderMs: 0, outputMs: 0, texturePaintMs: 0, textureDeliveryMs: 0 })
 let captureCounters = newCaptureCounters()
@@ -560,7 +566,7 @@ function exportPool(parent: number) {
       create: size => ({ host: null, texture: false, release: reserveResources(0, size, parent) }),
       close: slot => { teardownHost(slot); slot.release() },
       capacity: isResourceCapacityError,
-      maxHosts: 3, maxConcurrent: 2,
+      maxHosts: exportHostLimits.get(parent) ?? 3, maxConcurrent: 2,
     })
     exportPools.set(parent, pool)
   }
@@ -648,6 +654,7 @@ export function captureExportMotifFrameB64(a: CaptureArgs, parent: number, key?:
 }
 
 export function retireExportCaptureHosts(parent: number): void {
+  exportHostLimits.delete(parent)
   const pool = exportPools.get(parent)
   if (!pool) return
   exportPools.delete(parent)

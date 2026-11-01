@@ -34,7 +34,7 @@ import { mediaMimeForExt } from './mediaMime.js'
 import { VLM_ENDPOINT_KEY_TAG } from '../shared/vlm-config.js'
 import { registerMotifProtocol } from './motif/protocol.js'
 import { installPerformanceCalibration } from './performanceCalibration.js'
-import { setRuntimeSource, captureMotifFrameB64, captureExportMotifFrameB64, captureExportMotifTexture, retireExportCaptureHosts, captureMotifTexture, setTextureCaptureEnabled, isMotifContentFailure, setMotifStore, shutdownCaptureHost, invalidateCaptureSurface, controlMotifCapture, captureDiagnostics, resetCaptureFailure } from './motif/capture.js'
+import { setRuntimeSource, captureMotifFrameB64, captureExportMotifFrameB64, captureExportMotifTexture, configureExportCaptureHosts, retireExportCaptureHosts, captureMotifTexture, setTextureCaptureEnabled, isMotifContentFailure, setMotifStore, shutdownCaptureHost, invalidateCaptureSurface, controlMotifCapture, captureDiagnostics, resetCaptureFailure } from './motif/capture.js'
 import { setMotifMediaSource } from './motif/mediaProps.js'
 import { rasterizeSvg } from './svgRaster.js'
 import { MotifCaptureService, type CaptureRequest, type TextureEncoder } from './motif/captureService.js'
@@ -595,6 +595,7 @@ app.whenReady().then(async () => {
   installResourceIpc((status) => recordDiagnostic('resources', JSON.stringify(status)), {
     prepare: owner => motifGpu?.close(owner),
     retire: (owner, id) => { retireExportCaptureHosts(id); motifGpu?.closeExport(owner, id) },
+    admitted: (_owner, id, hosts) => configureExportCaptureHosts(id, hosts),
   })
   hydratePerformanceSettings(initialAppSettings.performance,
     !initialAppSettings.performance_policy || initialAppSettings.performance_policy.decode === 'tested' && initialAppSettings.performance_test_compatible

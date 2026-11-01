@@ -4,6 +4,8 @@ export interface ExportResourcePlan {
   workerMiB: number;
   motifBufferBytes: number;
   motifFrames?: number;
+  /** Admitted resident affinity cache, separate from producer frame credits. */
+  motifHosts?: number;
   frameWindows: Record<string, number>;
 }
 export type ResourceWaitReason = 'busy' | 'pressure' | 'host-pressure' | 'budget-too-small';
@@ -12,7 +14,7 @@ export interface ExportResourceBlock {
   requestedMiB: number; availableMiB: number; workMiB: number; revision: number;
 }
 export type ExportAdmission = ExportResourceBlock | { kind: 'admitted'; id: number; index: number };
-export interface ExportPlanRequest { id: string; options: number[]; nativeEncoder: boolean }
+export interface ExportPlanRequest { id: string; options: number[]; nativeEncoder: boolean; motifHosts?: number[] }
 export const resourceBlockError = (block: ExportResourceBlock) =>
   new Error(`resource-capacity-exceeded: ${JSON.stringify(block)}`);
 export function resourceFailureReason(error: unknown): ResourceWaitReason | undefined {

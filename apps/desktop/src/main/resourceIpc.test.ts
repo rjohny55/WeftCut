@@ -176,6 +176,38 @@ it('finalization tokens belong to one renderer and expire on release or reload',
 });
 
 const planRequest = { id: 'plan-a', options: [900, 800], nativeEncoder: true };
+it('exposes only a bounded resident ceiling through the dedicated configuration endpoint',()=>{
+  try {
+    for(const [value,expected] of [[undefined,3],['8',8],['13',3],['8x',3]] as const){
+      vi.stubEnv('WEFTCUT_EXPORT_MOTIF_HOSTS',value);
+      expect(mocks.handles.get('resources:motif-export-host-limit')!()).toBe(expected);
+    }
+  } finally { vi.unstubAllEnvs(); }
+});
+it('returns the parent and invalidates its token when export host configuration fails',async()=>{
+  const owner=sender(41),retire=vi.fn();
+  installResourceIpc(undefined,{prepare:vi.fn(),retire,admitted:()=>{throw Error('host configuration failed')}});
+  mocks.plan.mockReturnValue({kind:'admitted',id:97,index:0});
+  await expect(mocks.handles.get('resources:plan-export')!({sender:owner},planRequest)).rejects.toThrow('host configuration failed');
+  expect(retire).toHaveBeenCalledExactlyOnceWith(owner,97);
+  expect(mocks.releaseId).toHaveBeenCalledExactlyOnceWith(97);
+  expect(()=>resolveExportFinalization(41,'plan-a')).toThrow('expired');
+  owner.emit('destroyed');
+  expect(mocks.releaseId).toHaveBeenCalledOnce();
+});
+it('configures only the admitted resident host count and rejects malformed host plans',async()=>{
+  const owner=sender(39),admitted=vi.fn(),retire=vi.fn();
+  installResourceIpc(undefined,{prepare:vi.fn(),retire,admitted});
+  mocks.plan.mockReturnValue({kind:'admitted',id:96,index:1});
+  expect(await mocks.handles.get('resources:plan-export')!({sender:owner},{...planRequest,motifHosts:[8,1]})).toBe(1);
+  expect(admitted).toHaveBeenCalledExactlyOnceWith(owner,96,1);
+  mocks.listeners.get('resources:release')!({sender:owner},'plan-a');
+  expect(retire).toHaveBeenCalledExactlyOnceWith(owner,96);
+  for(const motifHosts of [[13,1],[8],[-1,1],[1.5,1],'8']){
+    await expect(mocks.handles.get('resources:plan-export')!({sender:owner},{...planRequest,motifHosts})).rejects.toThrow('Invalid export resource plans');
+  }
+  owner.emit('destroyed');
+});
 it('export plans are owner-scoped and children borrow the same native reservation', async () => {
   const owner = sender(31);
   mocks.plan.mockReturnValue({ kind: 'admitted', id: 93, index: 1 });

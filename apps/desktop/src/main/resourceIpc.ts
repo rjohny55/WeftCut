@@ -1,3 +1,4 @@
+import { exportMotifHostLimit } from '../shared/motifs/exportHostLimit';
 import { admitExport } from './exportAdmission';
 import type { ExportPlanRequest } from '../shared/export-resources';
 import { tryExportPlan, waitForResourceChange, releaseResourceId, decoderResourceMiB } from './resources';
@@ -17,7 +18,7 @@ export function resolveExportFinalization(senderId: number, token: unknown): num
 
 /** Owner-scoped renderer leases. Reload/renderer death returns every outstanding
  * lease. A sender cannot release another window's allocation. */
-export function installResourceIpc(onDiagnostic?: (snapshot: { status: ResourceStatus; allocation: ReturnType<typeof resourceAllocation> }) => void, exportResources?: { prepare(sender: Electron.WebContents): void; retire(sender: Electron.WebContents, id: number): void }) {
+export function installResourceIpc(onDiagnostic?: (snapshot: { status: ResourceStatus; allocation: ReturnType<typeof resourceAllocation> }) => void, exportResources?: { prepare(sender: Electron.WebContents): void; retire(sender: Electron.WebContents, id: number): void; admitted?(sender: Electron.WebContents, id: number, motifHosts: number): void }) {
   const owners = new Map<number, { releases: Map<string, () => void>; pending: Map<string, AbortController>; playing: boolean }>();
   const pressure = createMemoryPressure();
   let quitting = false;
@@ -56,6 +57,7 @@ export function installResourceIpc(onDiagnostic?: (snapshot: { status: ResourceS
     publish();
     return owner;
   };
+  ipcMain.handle('resources:motif-export-host-limit', () => exportMotifHostLimit(process.env.WEFTCUT_EXPORT_MOTIF_HOSTS));
   ipcMain.handle('resources:estimate-decoder', (_event, path: string) => {
     if (typeof path !== 'string' || !path) throw new Error('Invalid decoder path');
     return decoderResourceMiB(path);
@@ -66,7 +68,9 @@ export function installResourceIpc(onDiagnostic?: (snapshot: { status: ResourceS
       || owner.releases.has(request.id) || owner.pending.has(request.id)
       || typeof request.nativeEncoder !== 'boolean' || !Array.isArray(request.options)
       || !request.options.length || request.options.length > 8
-      || request.options.some(n => !Number.isSafeInteger(n) || n < 64 || n > 0xffff_ffff)) throw new Error('Invalid export resource plans');
+      || request.options.some(n => !Number.isSafeInteger(n) || n < 64 || n > 0xffff_ffff)
+      || (request.motifHosts!==undefined && (!Array.isArray(request.motifHosts) || request.motifHosts.length!==request.options.length
+        || request.motifHosts.some(n=>!Number.isSafeInteger(n)||n<1||n>12)))) throw new Error('Invalid export resource plans');
     if (owner.pending.size >= 32) throw new Error('resource-capacity-exceeded: Too many queued exports');
     exportResources?.prepare(event.sender);
     const controller = new AbortController();
@@ -79,7 +83,18 @@ export function installResourceIpc(onDiagnostic?: (snapshot: { status: ResourceS
       if (controller.signal.aborted) { releaseResourceId(admitted.id); controller.signal.throwIfAborted(); }
       const tokens = finalizationOwners.get(event.sender.id) ?? new Map<string, number>();
       tokens.set(request.id, admitted.id); finalizationOwners.set(event.sender.id, tokens);
-      owner.releases.set(request.id, () => { exportResources?.retire(event.sender, admitted.id); releaseResourceId(admitted.id); });
+      try {
+        exportResources?.admitted?.(event.sender,admitted.id,request.motifHosts?.[admitted.index]??3);
+      } catch (error) {
+        tokens.delete(request.id);
+        try { exportResources?.retire(event.sender, admitted.id); }
+        finally { releaseResourceId(admitted.id); }
+        throw error;
+      }
+      owner.releases.set(request.id, () => {
+        try { exportResources?.retire(event.sender, admitted.id); }
+        finally { releaseResourceId(admitted.id); }
+      });
       return admitted.index;
     } finally { owner.pending.delete(request.id); }
   });

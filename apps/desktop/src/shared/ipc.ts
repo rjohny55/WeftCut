@@ -402,6 +402,7 @@ import type { MenuProjection } from './menu'
 export interface WeftcutApi {
   diagnostics: import('./diagnostics').DiagnosticsApi
   resources: {
+    exportMotifHostLimit(): Promise<number>;
     planExport(request: import('./export-resources').ExportPlanRequest): Promise<number>;
     estimateDecoder(path: string): Promise<number>;
     onExportWaiting(cb: (event: import('./export-resources').ExportResourceBlock & { id: string }) => void): () => void;

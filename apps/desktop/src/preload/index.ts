@@ -55,6 +55,7 @@ const api: WeftcutApi = {
     recordError: message => ipcRenderer.send('diagnostics:error', message),
   },
   resources: {
+    exportMotifHostLimit: () => ipcRenderer.invoke('resources:motif-export-host-limit'),
     planExport: request => ipcRenderer.invoke('resources:plan-export', request),
     estimateDecoder: path => ipcRenderer.invoke('resources:estimate-decoder', path),
     onExportWaiting: cb => {

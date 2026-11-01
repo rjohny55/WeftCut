@@ -1,4 +1,5 @@
 import { CAPTURE_SUPERSEDED_MESSAGE } from '../../shared/motifs/captureErrors';
+import {exportMotifHostLimit} from '../../shared/motifs/exportHostLimit';
 
 interface Slot<T> { value: T; affinity: string; size: number; busy: boolean; used: number }
 interface Job<R> { affinity: string; size: number; key?: string; current(): boolean; run(value: unknown): Promise<R>; resolve(value: R): void; reject(error: unknown): void }
@@ -12,6 +13,7 @@ export class ExportCapturePool<T> {
   private running = 0;
   private sequence = 0;
   private stopped = false;
+  private readonly counts = {created: 0, reassignments: 0, capacityRefusals: 0, peakHosts: 0};
   constructor(private readonly deps: {
     create(size: number): T;
     close(value: T): void;
@@ -21,7 +23,8 @@ export class ExportCapturePool<T> {
   }) {}
 
   get retired(): boolean { return this.stopped; }
-  get diagnostics() { return { hosts: this.slots.length, running: this.running, queued: this.queue.length }; }
+  get diagnostics() { return { hosts: this.slots.length, running: this.running, queued: this.queue.length,
+    maxHosts: exportMotifHostLimit(this.deps.maxHosts), ...this.counts }; }
 
   capture<R>(affinity: string, size: number, key: string | undefined, current: () => boolean, run: (value: T) => Promise<R>): Promise<R> {
     if (this.stopped || !current()) return Promise.reject(new Error(CAPTURE_SUPERSEDED_MESSAGE));
@@ -64,12 +67,14 @@ export class ExportCapturePool<T> {
       if (index < 0) return;
       const job = this.queue[index]!;
       let slot = this.slots.find(slot => !slot.busy && slot.affinity === job.affinity && slot.size >= job.size);
-      if (!slot && this.slots.length < (this.deps.maxHosts ?? 3)) {
+      if (!slot && this.slots.length < exportMotifHostLimit(this.deps.maxHosts)) {
         try {
           slot = { value: this.deps.create(job.size), affinity: job.affinity, size: job.size, busy: false, used: 0 };
           this.slots.push(slot);
+          this.counts.created++; this.counts.peakHosts = Math.max(this.counts.peakHosts,this.slots.length);
         } catch (error) {
           if (!this.deps.capacity(error)) { this.queue.splice(index, 1); job.reject(error); continue; }
+          this.counts.capacityRefusals++;
           // Reduced-memory export plans are allowed to reuse one resident
           // page. Lack of room for an optimization is not an export failure.
           if (!this.slots.length) { this.queue.splice(index, 1); job.reject(error); continue; }
@@ -85,6 +90,7 @@ export class ExportCapturePool<T> {
       }
       if (!slot) return; // busy residents will replenish capacity on completion
       this.queue.splice(index, 1);
+      if(slot.affinity!==job.affinity)this.counts.reassignments++;
       slot.affinity = job.affinity; slot.busy = true; slot.used = ++this.sequence;
       this.running++;
       const active = slot;

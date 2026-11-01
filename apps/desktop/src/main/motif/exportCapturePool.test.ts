@@ -15,6 +15,27 @@ function fixture(capacity = 3) {
 }
 
 describe('bounded export capture pages', () => {
+  it('keeps eight repeating affinities warm without running more than two clocks',async()=>{
+    let sequence=0,active=0,peak=0;
+    const create=vi.fn(()=>({id:++sequence})),close=vi.fn();
+    const pool=new ExportCapturePool({create,close,capacity:()=>false,maxHosts:8,maxConcurrent:2});
+    const run=async(host:{id:number})=>{active++;peak=Math.max(peak,active);await tick();active--;return host.id;};
+    const first=await Promise.all(Array.from({length:8},(_,i)=>pool.capture(`a${i}`,64,undefined,()=>true,run)));
+    const second=await Promise.all(Array.from({length:8},(_,i)=>pool.capture(`a${i}`,64,undefined,()=>true,run)));
+    expect(second).toEqual(first);expect(create).toHaveBeenCalledTimes(8);expect(peak).toBe(2);
+    await tick();expect(pool.diagnostics).toMatchObject({maxHosts:8,peakHosts:8,created:8,reassignments:0});
+    pool.retire();expect(close).toHaveBeenCalledTimes(8);
+  });
+  it('reuses admitted pages when an eight-host cache has only memory for two',async()=>{
+    let live=0,sequence=0;
+    const pool=new ExportCapturePool({maxHosts:8,maxConcurrent:2,
+      create:()=>{if(live===2)throw Error('capacity');live++;return {id:++sequence};},
+      close:()=>{live--;},capacity:(e:unknown)=>String(e).includes('capacity')});
+    const results=await Promise.all(Array.from({length:8},(_,i)=>pool.capture(`a${i}`,64,undefined,()=>true,async host=>{await tick();return host.id;})));
+    expect(new Set(results).size).toBe(2);expect(pool.diagnostics.peakHosts).toBe(2);
+    expect(pool.diagnostics.capacityRefusals).toBeGreaterThan(0);
+    await tick();pool.retire();expect(live).toBe(0);
+  });
   it('overlaps independent pages, serializes the same clock, and retains three warm affinities', async () => {
     const h = fixture(), a = deferred(), b = deferred();
     const hosts: number[] = [];
@@ -24,7 +45,7 @@ describe('bounded export capture pages', () => {
     const third = h.pool.capture('illustration', 64, 'c', () => true, async host => { hosts.push(host.id); return 'c'; });
     await tick();
     expect(hosts).toEqual([1, 2]);
-    expect(h.pool.diagnostics).toEqual({ hosts: 2, running: 2, queued: 2 });
+    expect(h.pool.diagnostics).toMatchObject({ hosts: 2, running: 2, queued: 2 });
     a.resolve('a'); await first; await same; await third;
     expect(hosts).toEqual([1, 2, 1, 3]);
     b.resolve('b'); await second; await tick();

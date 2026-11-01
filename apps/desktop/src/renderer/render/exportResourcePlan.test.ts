@@ -3,6 +3,17 @@ import { buildExportResourcePlans, peakDecoderMiB } from './exportResourcePlan';
 import { exportDecoderMiB, minimumExportFrames } from '../../shared/export-resources';
 
 describe('export working-set plans', () => {
+  it('reserves extra warm pages separately from capture concurrency and retains a one-host lower plan',()=>{
+    const input={sources:{},clips:[],workerMiB:335,encoderMiB:192,motifBufferBytes:144*1048576,
+      motifFrameBytes:16*1048576,captureMiB:175,residentHostMiB:128};
+    const shipping=buildExportResourcePlans(input),warm=buildExportResourcePlans({...input,motifHosts:8});
+    expect(warm.map(p=>p.motifHosts)).toEqual([8,5,1]);
+    expect(warm.map(p=>p.motifFrames)).toEqual([3,2,1]);
+    expect(warm[0]!.memoryMiB-shipping[0]!.memoryMiB).toBe(5*128);
+    expect(warm[1]!.memoryMiB-shipping[1]!.memoryMiB).toBe(3*128);
+    expect(warm.at(-1)!.memoryMiB).toBe(shipping.at(-1)!.memoryMiB);
+    expect(shipping.every(p=>p.motifHosts===undefined)).toBe(true);
+  });
   it('fits the real 2304 MiB Main10 target by reducing dispatch, retaining private surfaces and quality', () => {
     const minimumFrames=minimumExportFrames({codec:'avc1.6e0028',codedWidth:1920,codedHeight:1080});
     expect(minimumFrames).toBe(12);

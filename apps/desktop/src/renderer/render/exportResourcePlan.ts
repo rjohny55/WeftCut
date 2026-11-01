@@ -13,6 +13,7 @@ import { forEachLayerInTime, instanceKey } from './compositionWalk';
 import { motifLayersToBake } from './exportBake';
 import { acquireExportResources, exportBufferBytes } from './resourceClient';
 import { EXPORT_FRAME_WINDOW, exportDecoderMiB, minimumExportFrames, type ExportResourcePlan } from '../../shared/export-resources';
+import {motifFrameDescriptor} from './motifs/motifFrameDescriptor';
 
 export interface ExportSourceDemand { width: number; height: number; tenBit: boolean; minimumFrames: number; nativeMiB?: number }
 export interface ExportActiveDemand { key: string; mediaId: string; start: number; end: number }
@@ -36,6 +37,7 @@ export function peakDecoderMiB(clips: ExportActiveDemand[], memory: Record<strin
 export function buildExportResourcePlans(input: {
   sources: Record<string, ExportSourceDemand>; clips: ExportActiveDemand[];
   workerMiB: number; encoderMiB: number; motifBufferBytes: number; captureMiB?: number; motifFrameBytes?: number;
+  motifHosts?: number; residentHostMiB?: number;
 }): ExportResourcePlan[] {
   const plans: ExportResourcePlan[]=[];
   for (const fraction of [0, .5, 1]) {
@@ -48,8 +50,13 @@ export function buildExportResourcePlans(input: {
     const motifFrames = 3 - fraction * 2;
     const motifBufferBytes = Math.ceil(input.motifBufferBytes * (1-fraction) + (input.motifFrameBytes ?? input.motifBufferBytes) * fraction);
     const workerMiB = Math.ceil(input.workerMiB + (motifBufferBytes-input.motifBufferBytes)/1048576);
-    const memoryMiB=Math.max(64, workerMiB+input.encoderMiB+motifFrames*(input.captureMiB ?? 0)+peakDecoderMiB(input.clips,memory));
-    if (!plans.some(p => p.memoryMiB === memoryMiB)) plans.push({ memoryMiB, workerMiB, motifBufferBytes, motifFrames, frameWindows });
+    const motifHosts=input.motifHosts === undefined ? motifFrames : Math.max(1, Math.ceil(input.motifHosts-(input.motifHosts-1)*fraction));
+    // Working captures still follow producer credits. Only the resident page
+    // component grows; a warm idle page does not execute another capture.
+    const captureMemory=motifFrames*(input.captureMiB ?? 0)+(motifHosts-motifFrames)*(input.residentHostMiB ?? 0);
+    const memoryMiB=Math.max(64, workerMiB+input.encoderMiB+captureMemory+peakDecoderMiB(input.clips,memory));
+    if (!plans.some(p => p.memoryMiB === memoryMiB)) plans.push({ memoryMiB, workerMiB, motifBufferBytes, motifFrames, frameWindows,
+      ...(input.motifHosts === undefined ? {} : {motifHosts}) });
   }
   return plans;
 }
@@ -103,15 +110,30 @@ export async function prepareExportResourcePlans(input: {
     return Math.ceil(16+bytes*4/1048576)+Math.ceil(bytes/1048576)
       + Math.ceil(128+256+bytes*7/1048576);
   }));
+  const residentHostMiB=Math.max(0,...motifs.map(m => Math.ceil(128+256+m.motif.manifest.size[0]*m.motif.manifest.size[1]*28/1048576)));
+  const configuredHosts=hasMotifs && typeof window !== 'undefined' && window.api?.resources?.exportMotifHostLimit
+    ? await window.api.resources.exportMotifHostLimit() : 3;
+  input.signal.throwIfAborted();
+  // The affinity uses the same package/props/size/fps identity as main's pool.
+  // Count simultaneous identities, not every clip across a long timeline.
+  const hostAffinities=Object.fromEntries(motifs.map(m => {
+    const desc=motifFrameDescriptor(m.view,m.sampleLocalUs ?? 0,m.durationUs,comp.fps_num,comp.fps_den,m.motif)!;
+    return [m.layerId,JSON.stringify([m.motif.manifest.id,m.motif.manifest.content_hash,desc.canonicalProps,desc.renderW,desc.renderH,comp.fps_num,comp.fps_den])];
+  }));
   const motifBytes=Object.fromEntries(motifs.map(m => [m.layerId,m.motif.manifest.size[0]*m.motif.manifest.size[1]*8]));
   const motifSpans: ExportActiveDemand[]=[];
+  const hostSpans: ExportActiveDemand[]=[];
   forEachLayerInTime(input.summary,input.summary.root_id,input.startUs,input.endUs,0,placed => {
     const key=instanceKey(placed.path,placed.layer.id);
     if (motifBytes[key]) motifSpans.push({key,mediaId:key,start:placed.tStartUs,end:placed.tEndUs});
+    const affinity=hostAffinities[key];
+    if(affinity)hostSpans.push({key:affinity,mediaId:affinity,start:placed.tStartUs,end:placed.tEndUs});
   });
   const motifFrameBytes=peakDecoderMiB(motifSpans,motifBytes);
   const motifBufferBytes=hasMotifs?Math.max(motifFrameBytes,pixels,Math.floor(exportBufferBytes()/2)):0;
+  const activeHosts=peakDecoderMiB(hostSpans,Object.fromEntries(Object.values(hostAffinities).map(key=>[key,1])));
   const plans=buildExportResourcePlans({ sources,clips,motifBufferBytes,captureMiB,motifFrameBytes,
+    ...(configuredHosts === 3 || !hasMotifs ? {} : {motifHosts:Math.max(1,Math.min(configuredHosts,activeHosts)),residentHostMiB}),
     workerMiB:Math.ceil(64+(pixels*8+motifBufferBytes)/1048576),
     encoderMiB:input.nativeEncoder?128+Math.ceil(input.outputWidth*input.outputHeight*32/1048576):0,
   });

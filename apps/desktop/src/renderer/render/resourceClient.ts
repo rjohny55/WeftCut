@@ -70,7 +70,8 @@ export async function admitExportResources(plans: import('../../shared/export-re
   const cancel = () => window.api.resources.release(token);
   signal.addEventListener('abort', cancel, { once: true });
   try {
-    const index = await window.api.resources.planExport({ id: token, options: plans.map(p => p.memoryMiB), nativeEncoder });
+    const index = await window.api.resources.planExport({ id: token, options: plans.map(p => p.memoryMiB), nativeEncoder,
+      ...(plans.some(p=>p.motifHosts!==undefined)?{motifHosts:plans.map(p=>p.motifHosts??Math.max(1,p.motifFrames??3))}:{}) });
     if (signal.aborted) { cancel(); signal.throwIfAborted(); }
     let live = true;
     return { token, plan: plans[index]!, release: () => { if (live) { live = false; cancel(); } } };
