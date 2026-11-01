@@ -132,7 +132,7 @@ describe('streamed Motif selection', () => {
   it('stops optional PNG encoding and write retries after quota exhaustion, but keeps exact pixels and cache reads', async () => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const b = bitmap();
-    vi.mocked(captureMotifFrameResult).mockResolvedValue({ bitmap: b, persisted: false });
+    vi.mocked(captureMotifFrameResult).mockResolvedValue({ bitmap: b, persisted: false, scaleDiv: 'live' });
     vi.mocked(sharedMotifFrameCache.writeFrame).mockRejectedValue(new Error('motif-disk-capacity: quota reached'));
     const png = vi.fn(async () => new Blob(['pixels']));
     vi.stubGlobal('OffscreenCanvas', class {
