@@ -131,3 +131,79 @@ sink and completed all 30 frames. The injected binary is not included here.
 The timing comparison above used the v0.5.6 port. Full upstream CI and wider
 AMD/platform testing are still pending. Keep the feature experimental; this
 report is not grounds for enabling it automatically on every Linux GPU.
+
+## Follow-up: reduce Motif source stalls on a real project
+
+This is a different workload from the four-second synthetic comparison above:
+an isolated clone of a real multilayer 120-second project range, 1920×1080,
+30 fps / 3,600 frames, H.264 8 Mbps VBR, AAC stereo. Same RX 5700 XT/Linux
+machine. The original project/media remained read-only; none are published.
+These timings are from the custom integration build, **not a stock upstream
+installer or a full-length timing of the separately rebased PR ports**.
+
+| Final-frame route / source-page policy | Wall time | Page loads |
+| --- | ---: | ---: |
+| GPU bridge, three resident pages | 881.961 s | not recorded |
+| GPU bridge, eight resident pages / generic LRU | 627.309 s | 709 |
+| GPU bridge, eight resident pages / document-aware reuse | 457.043 s | 240 |
+
+Final elapsed time is **48.18% lower** than the three-host bridge control,
+equivalent to **1.93× throughput**. Document-aware reuse alone reduced elapsed
+time by 27.14% versus eight-host generic LRU. This is not “48% more throughput,”
+and percentages must not be added to the earlier ~23.4% exploratory bridge gain.
+
+For context, that earlier real-project staging-versus-bridge pair measured
+1,131.030 → 866.124 s (~23.4% less time); its control briefly overlapped
+diagnostic work. The fresh bridge control here is 881.961 s, not 866.124 s.
+It is not a new four-way interleaved CPU/old-sink/bridge/cache comparison.
+Each full row here is one sequential run, so more alternating repetitions are
+needed before treating the percentage as stable or generalizing to other scenes.
+
+Both eight-host runs admitted the same 5,501 MiB memory plan, kept eight resident
+pages, at most two executing clocks and the original three producer credits.
+They captured exactly 17,218 full-resolution source bitmaps over GPU snapshots:
+zero source errors, PNG fallback, utility RGBA payload or final-sink fallback.
+This is not whole-editor GPU-only operation; setup, source preparation and
+qualification still do CPU work.
+
+The key bottleneck was repeated page navigation, not PNG output: the heavy
+section reaches 14 simultaneous props affinities across fewer packages.
+Document-aware victim selection preserves exact hits and bounded growth, then
+prefers an idle page from the same package/revision/size/fps/transport. Changing
+props reruns setup; busy pages are never reused. It does not raise concurrency,
+weaken resource admission or downscale export frames.
+
+### Control and quality checks
+
+- Same-bundle 180–183 s subsection: 63.989 s with three residents versus
+  17.431 s with eight. All 90 decoded frames and timestamps matched exactly.
+- All 3,600 final decoded frames compared against the serial bridge control:
+  3,477 pixel-identical, zero PTS mismatches, YUV PSNR **98.34 dB**, mean
+  non-overlapping 8×8 luma block SSIM **0.9999999837**. The largest-difference
+  frame (output 56.900 s) was visually checked with no visible loss. This is a
+  lossy-output comparison, not a lossless-source quality score.
+- A separate final-frame lookahead experiment measured 881.961 → 882.052 s:
+  **no meaningful gain**; lookahead stays off.
+- Cancellation on the overloaded subsection retired the resident pool and
+  queued work; the next export completed all 90 frames without source errors.
+- A 15-frame HEVC hardware smoke passed. A deliberately injected DMA-BUF error
+  retried the entire range through the previous sink and completed 15 H.264
+  frames with audio. These are correctness smoke checks, not codec benchmarks.
+- The parent independently reran 125 focused tests on the measured integration.
+  Upstream-port tests/builds are reported in the respective PRs; wider CI remains
+  pending. One startup-race control was excluded because its Motif catalog was
+  unavailable and no Motifs rendered; the harness now waits for catalog readiness.
+
+The larger cache remains opt-in (`WEFTCUT_EXPORT_MOTIF_HOSTS=8`, bounded 1–12).
+RAM admission is not complete VRAM admission; 4K/8 GiB safety is unproven.
+Authored setup must dispose its previous DOM/Three.js resources when props change.
+There is also a pre-existing resident-surface invalidation gap after GPU-process
+restart; ordinary completion/fallback is not proof of complete restart recovery.
+No preview speedup, new PNG-free cached-reader result or default-route change is
+claimed. Final output resolution, frame count and the source audio mix were kept
+unchanged.
+
+Sanitized aggregate samples and quality measurements:
+[residency-results.json](residency-results.json). No user frames, manuscripts,
+authored props, project names/paths, media identifiers, traces or credentials
+are included.

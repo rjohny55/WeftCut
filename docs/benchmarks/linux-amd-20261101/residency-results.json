@@ -1,0 +1,284 @@
+{
+  "hardware": {
+    "gpu": "AMD Radeon RX 5700 XT, 8 GiB",
+    "cpu": "2 x Intel Xeon E5-2696 v3, 72 logical CPUs",
+    "os": "Linux 7.0.0-38",
+    "mesa": "22.3.6",
+    "session": "hardware GL Wayland, ANGLE/OpenGL",
+    "electron": "44.9.3"
+  },
+  "scope": "Custom integration build, isolated clone of a real multilayer project; not an upstream-installer timing",
+  "settings": {
+    "durationSeconds": 120,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "frames": 3600,
+    "videoCodec": "H.264",
+    "bitrate": 8000000,
+    "rateMode": "VBR",
+    "audio": "AAC stereo 48 kHz",
+    "lookahead": false,
+    "sourceMode": "cache-first"
+  },
+  "fullRuns": [
+    {
+      "id": "bridge-3-resident",
+      "wallMs": 881961,
+      "capture": null,
+      "plan": null
+    },
+    {
+      "id": "bridge-8-resident-lru",
+      "wallMs": 627309,
+      "workerMs": 615822,
+      "counts": {
+        "requests": 17218,
+        "completed": 17218,
+        "errors": 0,
+        "cacheChecks": 0,
+        "cacheHits": 0,
+        "cacheMisses": 0,
+        "cacheIndexMisses": 17218,
+        "cacheBypassRequests": 0,
+        "liveCaptures": 17218,
+        "captureStored": 0,
+        "gpuSnapshots": 17218,
+        "textureFrames": 0,
+        "pngFrames": 0,
+        "gpuFallbacks": 0,
+        "utilityReads": 0,
+        "textureReads": 0,
+        "readerMisses": 0,
+        "transportErrors": 0,
+        "persisted": 0,
+        "cacheWriteSkipped": 17218,
+        "rendererWrites": 0,
+        "rendererWriteFailures": 0,
+        "fullResolutionFrames": 17218,
+        "decodedPixelBytes": 82855166880,
+        "utilityRgbaPayloadBytes": 0,
+        "pngPayloadBytes": 0
+      },
+      "capture": {
+        "captures": 17218,
+        "completed": 17218,
+        "failed": 0,
+        "pageLoads": 709,
+        "hostBuilds": 8,
+        "textureCaptures": 17218,
+        "pngCaptures": 0,
+        "queueMs": 218188.11957800123,
+        "captureMs": 967467.8184509958,
+        "loadMs": 69524.28479499964,
+        "setupMs": 58776.3378009974,
+        "renderMs": 313760.9268699996,
+        "outputMs": 502103.8869589957,
+        "texturePaintMs": 224543.4841259998,
+        "textureDeliveryMs": 276987.24542799604
+      },
+      "plan": {
+        "memoryMiB": 5501,
+        "workerMiB": 1408,
+        "motifBufferBytes": 1342177280,
+        "motifFrames": 3,
+        "motifHosts": 8
+      }
+    },
+    {
+      "id": "bridge-8-resident-document",
+      "wallMs": 457043,
+      "workerMs": 445220,
+      "counts": {
+        "requests": 17218,
+        "completed": 17218,
+        "errors": 0,
+        "cacheChecks": 0,
+        "cacheHits": 0,
+        "cacheMisses": 0,
+        "cacheIndexMisses": 17218,
+        "cacheBypassRequests": 0,
+        "liveCaptures": 17218,
+        "captureStored": 0,
+        "gpuSnapshots": 17218,
+        "textureFrames": 0,
+        "pngFrames": 0,
+        "gpuFallbacks": 0,
+        "utilityReads": 0,
+        "textureReads": 0,
+        "readerMisses": 0,
+        "transportErrors": 0,
+        "persisted": 0,
+        "cacheWriteSkipped": 17218,
+        "rendererWrites": 0,
+        "rendererWriteFailures": 0,
+        "fullResolutionFrames": 17218,
+        "decodedPixelBytes": 82855166880,
+        "utilityRgbaPayloadBytes": 0,
+        "pngPayloadBytes": 0
+      },
+      "capture": {
+        "captures": 17218,
+        "completed": 17218,
+        "failed": 0,
+        "pageLoads": 240,
+        "hostBuilds": 8,
+        "textureCaptures": 17218,
+        "pngCaptures": 0,
+        "queueMs": 45617.30563500129,
+        "captureMs": 800622.9337650016,
+        "loadMs": 23867.2129109997,
+        "setupMs": 39360.82545500003,
+        "renderMs": 311223.94601800124,
+        "outputMs": 415966.58437900007,
+        "texturePaintMs": 135090.24528199836,
+        "textureDeliveryMs": 280333.4842119981
+      },
+      "plan": {
+        "memoryMiB": 5501,
+        "workerMiB": 1408,
+        "motifBufferBytes": 1342177280,
+        "motifFrames": 3,
+        "motifHosts": 8
+      }
+    }
+  ],
+  "shortSameBundle": {
+    "rangeSeconds": [
+      180,
+      183
+    ],
+    "threeResidentMs": 63989,
+    "eightResidentMs": 17431,
+    "frames": 90,
+    "pixelIdenticalFrames": 90,
+    "ptsMismatches": 0,
+    "excludedStartupSample": true
+  },
+  "quality": {
+    "blockSsimY": 0.999999983691013,
+    "frames": 3600,
+    "identicalFrames": 3477,
+    "maxSampleDifference": 29,
+    "mseYuv": 0.000009518782864654778,
+    "p99FrameMse": 0.00017296810699588477,
+    "planes": [
+      {
+        "meanSignedDifference": -1.6865462105624142e-7,
+        "mse": 0.00001245030114026063,
+        "psnrDb": 97.17900504860108
+      },
+      {
+        "meanSignedDifference": -1.441400891632373e-7,
+        "mse": 0.000005955825617283951,
+        "psnrDb": 100.38138387462725
+      },
+      {
+        "meanSignedDifference": 8.787722908093279e-8,
+        "mse": 0.0000013556670096021948,
+        "psnrDb": 106.80927333321917
+      }
+    ],
+    "psnrYuvDb": 98.34498940735281,
+    "ptsMismatches": 0,
+    "worstFrames": [
+      {
+        "blockSsimY": 0.9999831900617852,
+        "frame": 1707,
+        "mseYuv": 0.008496013374485597,
+        "seconds": 56.9
+      },
+      {
+        "blockSsimY": 0.9999878940226187,
+        "frame": 1706,
+        "mseYuv": 0.004871399176954732,
+        "seconds": 56.86666666666667
+      },
+      {
+        "blockSsimY": 0.9999970557759981,
+        "frame": 1705,
+        "mseYuv": 0.0030886702674897118,
+        "seconds": 56.833333333333336
+      },
+      {
+        "blockSsimY": 0.9999976272144109,
+        "frame": 1704,
+        "mseYuv": 0.002254372427983539,
+        "seconds": 56.8
+      },
+      {
+        "blockSsimY": 0.999995110531651,
+        "frame": 1703,
+        "mseYuv": 0.0016682741769547325,
+        "seconds": 56.766666666666666
+      },
+      {
+        "blockSsimY": 0.9999994564153915,
+        "frame": 1702,
+        "mseYuv": 0.0011342592592592593,
+        "seconds": 56.733333333333334
+      },
+      {
+        "blockSsimY": 0.9999997491872993,
+        "frame": 1708,
+        "mseYuv": 0.0006931584362139917,
+        "seconds": 56.93333333333333
+      },
+      {
+        "blockSsimY": 0.9999973075121718,
+        "frame": 1701,
+        "mseYuv": 0.0006137474279835391,
+        "seconds": 56.7
+      },
+      {
+        "blockSsimY": 0.9999993262480128,
+        "frame": 1700,
+        "mseYuv": 0.0005703446502057613,
+        "seconds": 56.666666666666664
+      },
+      {
+        "blockSsimY": 0.999999947106658,
+        "frame": 1230,
+        "mseYuv": 0.0004005915637860082,
+        "seconds": 41
+      },
+      {
+        "blockSsimY": 0.9999995613017258,
+        "frame": 1259,
+        "mseYuv": 0.0003288966049382716,
+        "seconds": 41.96666666666667
+      },
+      {
+        "blockSsimY": 0.9999995876223685,
+        "frame": 1253,
+        "mseYuv": 0.0003250385802469136,
+        "seconds": 41.766666666666666
+      }
+    ]
+  },
+  "followupChecks": {
+    "cancellation": {
+      "at": 0.34444444444444444,
+      "emptyPoolAfterCancel": true,
+      "restartFrames": 90,
+      "restartSourceErrors": 0
+    },
+    "hevc": {
+      "frames": 15,
+      "codec": "HEVC Main SDR8",
+      "gpuFinalSink": true,
+      "steadyFinalCpuPixelBytes": 0
+    },
+    "faultFallback": {
+      "injected": "DMA-BUF transport error",
+      "completedFrames": 15,
+      "wholeRangeRetriedThroughPreviousSink": true
+    }
+  },
+  "limits": [
+    "Whole-VRAM admission/4K safety not qualified",
+    "Pre-existing resident surface invalidation gap after GPU process restart",
+    "Authored setup must dispose its own state and graphics resources",
+    "One full sequential timing pair; not a universal speed claim"
+  ]
+}
