@@ -10,6 +10,7 @@
 // this resolves.
 
 import { convertFileSrc } from "@/bridge/ipc";
+import {gpuExportActive,sendGpuExportFrame} from './linuxGpuExport';
 import { loadBundledFontBytes, resolveFontsForFamilies } from "../fonts/registry";
 
 import type { MediaSummary, ProjectSummary } from "../../ipc";
@@ -258,6 +259,7 @@ export async function runExport(init: RunExportInit): Promise<RunExportResult> {
   // 6. Build the start request; post once the ready latch resolves.
   const startReq: Extract<ExportRequest, { type: "start" }> = {
     type: "start",
+    ...(gpuExportActive()?{gpuFinalExport:true}:{}),
     project: snapshot,
     startUs,
     endUs,
@@ -424,7 +426,9 @@ export async function runExport(init: RunExportInit): Promise<RunExportResult> {
     worker.onmessage = (e: MessageEvent<ExportEvent>) => {
       const ev = e.data;
       if (disposed) return;
-      if (ev.type === "motif:consumed") {
+      if(ev.type==='gpu-final-frame'){
+        void sendGpuExportFrame(ev.index,ev.bitmap).then(()=>{if(!disposed)worker.postMessage({type:'gpu-final-result'} satisfies ExportRequest);},error=>{if(!disposed)worker.postMessage({type:'gpu-final-result',error:String(error)} satisfies ExportRequest);});
+      } else if (ev.type === "motif:consumed") {
         motifProducer?.release(ev.index);
       } else if (ev.type === "progress") {
         framesEncoded = ev.framesEncoded;

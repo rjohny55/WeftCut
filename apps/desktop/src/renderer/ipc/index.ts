@@ -1,6 +1,7 @@
 import { parseManifestIsland } from '../../shared/motifs/catalog';
 import type { TimingFields } from '../../shared/timeMapping'
 import type { CropRect } from '../../shared/crop';
+import {startGpuExport,finishGpuExport,cancelGpuExport,gpuExportActive} from '../render/worker/linuxGpuExport';
 // Renderer-side IPC surface: typed `invoke` wrappers plus the wire shapes the
 // renderer reads back. It owns no state and no persistence.
 //
@@ -3423,11 +3424,15 @@ export interface VideoSinkStartArgs {
   preset?: string;
   /// Intermediate-codec profile: prores proxy|lt|422|hq, dnxhr lb|sq|hq.
   profile?: string;
+  /// Final GPU sink currently preserves native-size SDR8 only.
+  gpuNativeSize?: boolean;
 }
 
 /// Start a native-encode video sink.
-export function exportVideoSinkStart(args: VideoSinkStartArgs): Promise<void> {
-  return invoke("export_video_sink_start", { args });
+export async function exportVideoSinkStart(args: VideoSinkStartArgs): Promise<void> {
+  const {gpuNativeSize,...nativeArgs}=args;
+  if(gpuNativeSize&&await startGpuExport(nativeArgs))return;
+  return invoke("export_video_sink_start", { args:nativeArgs });
 }
 
 /// Finalize the video sink after all frames have been sent. Returns byte
@@ -3437,12 +3442,14 @@ export function exportVideoSinkFinish(): Promise<{
   frames: number;
   elapsedMs: number;
 }> {
+  if(gpuExportActive())return finishGpuExport();
   return invoke("export_video_sink_finish");
 }
 
 /// Abort a running sink (error / cancel paths). Safe to call even if the
 /// sink has already finished — the backend no-ops on a dead sink.
 export function exportVideoSinkCancel(): Promise<void> {
+  if(gpuExportActive())return cancelGpuExport();
   return invoke("export_video_sink_cancel");
 }
 

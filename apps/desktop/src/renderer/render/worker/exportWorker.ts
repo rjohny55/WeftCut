@@ -55,6 +55,7 @@ const motifInbox = new MotifFrameInbox();
 /// Resolver for the in-flight `chunk` write. WritableStream serializes writes,
 /// so at most one is pending at a time.
 let pendingChunkAck: (() => void) | null = null;
+let gpuFrameAck:{resolve():void;reject(error:Error):void}|null=null;
 
 /// Post one sequential output slice to the main thread and resolve once it
 /// acks (after appending to disk). mediabunny's WritableStream awaits this, so
@@ -82,6 +83,7 @@ installWorkerResourceClient(async (memoryMiB, threads) => {
 });
 self.onmessage = (e: MessageEvent<ExportRequest>) => {
   const req = e.data;
+  if(req.type==='gpu-final-result'){const ack=gpuFrameAck;gpuFrameAck=null;if(req.error)ack?.reject(Error(req.error));else ack?.resolve();return;}
   if (req.type === 'resource:result') {
     const pending = resourceWaiters.get(req.id); resourceWaiters.delete(req.id);
     if (req.error) pending?.reject(new Error(req.error)); else pending?.resolve();
@@ -297,7 +299,7 @@ async function runExport(req: Extract<ExportRequest, { type: "start" }>) {
   // event (desired; don't catch it here).
   let compositeRT: RenderTexture | null = null;
   let pack: PackYuv420p10 | PackYuvPlanar | null = null;
-  if (nativeSink) {
+  if (nativeSink&&!req.gpuFinalExport) {
     compositeRT = RenderTexture.create({
       width: req.project.width,
       height: req.project.height,
@@ -513,7 +515,13 @@ async function runExport(req: Extract<ExportRequest, { type: "start" }>) {
           compositor.setAnchorTime(tUs);
           compositor.compositeFrame(tUs);
 
-          if (nativeSink) {
+          if(req.gpuFinalExport){
+            if(tenBit||needsScale)throw Error('GPU export accepts native-size SDR8 only');
+            app.render();compositeMs+=performance.now()-compT0;
+            const capT0=performance.now();const bitmap=req.canvas.transferToImageBitmap();
+            captureMs+=performance.now()-capT0;
+            const encT0=performance.now();await new Promise<void>((resolve,reject)=>{gpuFrameAck={resolve,reject};post({type:'gpu-final-frame',index:i,bitmap},[bitmap]);});encodeMs+=performance.now()-encT0;
+          } else if (nativeSink) {
             // Native-sink path: render into the composite RenderTexture (rgba16float
             // for the 10-bit precision lane, rgba8unorm otherwise), pack to `sinkFmt`,
             // then stream to the Rust sink over the chunk/ack IPC channel.

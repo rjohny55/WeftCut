@@ -1,4 +1,11 @@
 import { contextBridge, ipcRenderer, sharedTexture, webUtils } from 'electron'
+if(process.platform==='linux'){
+ ipcRenderer.on('gpu-export:port',(event,data)=>window.postMessage({type:'gpu-export-port',token:data.token},'*',event.ports));
+ contextBridge.exposeInMainWorld('linuxGpuExport',{
+  start:(args:unknown)=>ipcRenderer.invoke('gpu-export:start',args),finish:()=>ipcRenderer.invoke('gpu-export:finish'),
+  cancel:()=>ipcRenderer.invoke('gpu-export:cancel'),disable:()=>ipcRenderer.invoke('gpu-export:disable'),
+ });
+}
 import type { SharedTextureImported } from 'electron'
 import { installMotifFrames } from './motifFrames'
 import { MotifReadBarrier } from './motifReadBarrier'

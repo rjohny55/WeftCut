@@ -1,0 +1,238 @@
+{
+  "schema_version": 5,
+  "project_id": "01a18c11-2a60-7df1-86cc-8ae17ed70dc1",
+  "metadata": {
+    "name": "Linux AMD export benchmark",
+    "created_at": "2026-10-30T09:08:17.632Z",
+    "modified_at": "2026-10-30T09:09:07.725Z",
+    "description": "Synthetic 1080p30 four-second countdown and animated-text fixture; no external media."
+  },
+  "compositions": {
+    "01a18c11-2a60-7078-847a-2324c947d0cd": {
+      "id": "01a18c11-2a60-7078-847a-2324c947d0cd",
+      "label": null,
+      "ordinal": 0,
+      "width": 1920,
+      "height": 1080,
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "sample_rate": 48000,
+      "channels": 2,
+      "color_space": "Bt709",
+      "background": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 255
+      },
+      "duration_us": 4000000,
+      "duration_pinned": false,
+      "tracks": [
+        {
+          "id": "01a18c11-2a60-7ee5-8372-ac74032b2419",
+          "label": null,
+          "enabled": true,
+          "locked": false,
+          "muted": false,
+          "solo": false,
+          "removable": false,
+          "role": "ARoll",
+          "transient": false,
+          "height_px": 64,
+          "layers": []
+        },
+        {
+          "id": "01a18c11-2a60-78b7-a9db-3544a9d300c5",
+          "label": null,
+          "enabled": true,
+          "locked": false,
+          "muted": false,
+          "solo": false,
+          "removable": false,
+          "role": "BRoll",
+          "transient": false,
+          "height_px": 64,
+          "layers": []
+        },
+        {
+          "id": "01a18c11-ec5b-744d-9b16-64d767e04d97",
+          "label": null,
+          "enabled": true,
+          "locked": false,
+          "muted": false,
+          "solo": false,
+          "removable": true,
+          "role": null,
+          "transient": true,
+          "height_px": 64,
+          "layers": [
+            {
+              "id": "01a18c11-ec64-770c-96b1-c34e4e6e339c",
+              "label": null,
+              "t_start_us": 0,
+              "t_end_us": 4000000,
+              "enabled": true,
+              "locked": false,
+              "metadata": {},
+              "params": {
+                "kind": "Motif",
+                "motif_id": "countdown",
+                "motif_version": 1,
+                "props": {
+                  "accent": "#00ccff",
+                  "label": "GO",
+                  "seconds": 4
+                },
+                "src_in_us": 0,
+                "transform": {
+                  "position": {
+                    "mode": "XY",
+                    "x": {
+                      "mode": "Static",
+                      "value": 240
+                    },
+                    "y": {
+                      "mode": "Static",
+                      "value": 240
+                    }
+                  },
+                  "scale_x": {
+                    "mode": "Static",
+                    "value": 1
+                  },
+                  "scale_y": {
+                    "mode": "Static",
+                    "value": 1
+                  },
+                  "rotation_deg": {
+                    "mode": "Static",
+                    "value": 0
+                  },
+                  "anchor_x": {
+                    "mode": "Static",
+                    "value": 0.5
+                  },
+                  "anchor_y": {
+                    "mode": "Static",
+                    "value": 0.5
+                  },
+                  "scale_linked": true
+                },
+                "opacity": {
+                  "mode": "Static",
+                  "value": 1
+                },
+                "graphic_role": null
+              },
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "01a18c11-ee0b-72eb-9d8d-48b11f8ae4a3",
+          "label": null,
+          "enabled": true,
+          "locked": false,
+          "muted": false,
+          "solo": false,
+          "removable": true,
+          "role": null,
+          "transient": true,
+          "height_px": 64,
+          "layers": [
+            {
+              "id": "01a18c11-ee0c-741a-bddc-440a987d6aba",
+              "label": null,
+              "t_start_us": 0,
+              "t_end_us": 4000000,
+              "enabled": true,
+              "locked": false,
+              "metadata": {},
+              "params": {
+                "kind": "Motif",
+                "motif_id": "text-fx",
+                "motif_version": 1,
+                "props": {
+                  "bg_color": "#00000000",
+                  "color": "#ffffff",
+                  "color2": "#00ccff",
+                  "effect": "color-shift",
+                  "font": "sans-latin",
+                  "font_size": 72,
+                  "h_align": "center",
+                  "loop": "loop",
+                  "outline_color": "#000000",
+                  "outline_width": 4,
+                  "text": "WAYLAND GPU EXPORT TEST",
+                  "type_speed": 20,
+                  "v_align": "bottom"
+                },
+                "src_in_us": 0,
+                "transform": {
+                  "position": {
+                    "mode": "XY",
+                    "x": {
+                      "mode": "Static",
+                      "value": 960
+                    },
+                    "y": {
+                      "mode": "Static",
+                      "value": 540
+                    }
+                  },
+                  "scale_x": {
+                    "mode": "Static",
+                    "value": 1
+                  },
+                  "scale_y": {
+                    "mode": "Static",
+                    "value": 1
+                  },
+                  "rotation_deg": {
+                    "mode": "Static",
+                    "value": 0
+                  },
+                  "anchor_x": {
+                    "mode": "Static",
+                    "value": 0.5
+                  },
+                  "anchor_y": {
+                    "mode": "Static",
+                    "value": 0.5
+                  },
+                  "scale_linked": true
+                },
+                "opacity": {
+                  "mode": "Static",
+                  "value": 1
+                },
+                "graphic_role": null
+              },
+              "effects": []
+            }
+          ]
+        }
+      ],
+      "markers": [],
+      "transitions": [],
+      "links": []
+    }
+  },
+  "root_id": "01a18c11-2a60-7078-847a-2324c947d0cd",
+  "next_group_ordinal": 1,
+  "media_pool": {},
+  "audio_roles": {},
+  "settings": {
+    "preview_width": 1280,
+    "preview_height": 720,
+    "autosave_interval_secs": 60,
+    "history_capacity": 200,
+    "auto_pair_audio_on_import": true,
+    "prefer_proxies": false,
+    "proxy_overrides": {},
+    "shot_review": null,
+    "pause_review": null
+  }
+}

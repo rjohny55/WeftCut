@@ -91,7 +91,7 @@ export default defineConfig({
   preload: {
     build: {
       outDir: 'out/preload',
-      lib: { entry: { index: 'src/preload/index.ts', screenPick: 'src/preload/screenPick.ts' }, formats: ['cjs'] },
+      lib: { entry: { index: 'src/preload/index.ts', screenPick: 'src/preload/screenPick.ts', gpuExportHost:'src/preload/gpuExportHost.ts' }, formats: ['cjs'] },
       rollupOptions: { output: { entryFileNames: '[name].js' } },
     },
   },

@@ -1,3 +1,4 @@
+import './linuxGpuExport.js';
 import { ExportJobs, exportPathExists, suggestExportName } from "./exportJobs";
 import path from 'node:path'
 import { diagnosticOwner, recordDiagnostic, recordProjectDiagnostic } from './diagnostics'

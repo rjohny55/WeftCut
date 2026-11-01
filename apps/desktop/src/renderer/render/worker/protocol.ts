@@ -96,9 +96,11 @@ export interface NativeDecodeOpenInfo {
 }
 
 export type ExportRequest =
+  | {type:'gpu-final-result';error?:string}
   | { type: 'resource:result'; id: string; error?: string }
   | {
       type: "start";
+      gpuFinalExport?:boolean;
       project: ExportProjectSnapshot;
       /// Time range to encode in microseconds (inclusive of
       /// `startUs`, exclusive of `endUs`).
@@ -220,6 +222,7 @@ export interface ExportPerf {
 }
 
 export type ExportEvent =
+  | {type:'gpu-final-frame';index:number;bitmap:ImageBitmap}
   | { type: 'resource:acquire'; id: string; memoryMiB: number; threads: number }
   | { type: 'resource:release'; id: string }
   | { type: "ready" }

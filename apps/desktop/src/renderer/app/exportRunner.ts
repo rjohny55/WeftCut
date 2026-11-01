@@ -4,6 +4,8 @@ import { convertFileSrc } from "@/bridge/ipc";
 import { getAudioEffect } from "../../shared/audioEffects/catalog";
 import { isResourceCapacityError } from "../../shared/resource-policy";
 import { approxFrameDurUs } from "../frames";
+import {gpuExportActive,disableGpuExport} from '../render/worker/linuxGpuExport';
+import {withGpuExportFallback} from '../render/gpuExportFallback';
 import {
   ensureExportAudioConform,
   ensureExportAudioFx,
@@ -19,6 +21,7 @@ import {
   type MediaJobEvent,
   type MediaSummary,
   type ProjectSummary,
+  type VideoSinkStartArgs,
 } from "../ipc";
 import { type ExportState } from "../panels/ExportPanel";
 import { type ProxyState } from "../panels/mediaReadiness";
@@ -587,9 +590,11 @@ export function createExportRunner(deps: {
       // Native-sink path: start the native-encode video sink (ffmpeg, frames
       // streamed over IPC) before the Worker starts. On the WebCodecs path the
       // existing fMP4 streaming path is used.
+      let sinkStartArgs:VideoSinkStartArgs|null=null;
       if (nativeSink && sinkTarget) {
         try {
-          await exportVideoSinkStart({
+          sinkStartArgs={
+            gpuNativeSize:dims.width===comp.width&&dims.height===comp.height&&compositeBitDepth(settings)===8,
             finalizationToken: finalizationReservation.token,
             width: dims.width,
             height: dims.height,
@@ -619,7 +624,8 @@ export function createExportRunner(deps: {
             ...(settings.codec === "prores" ? { profile: settings.proresProfile } : {}),
             ...(settings.codec === "dnxhr" ? { profile: settings.dnxhrProfile } : {}),
             outputPath: tempVideoPath,
-          });
+          };
+          await exportVideoSinkStart(sinkStartArgs);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           console.error("[weftcut/pixi] video sink start failed:", e);
@@ -730,8 +736,8 @@ export function createExportRunner(deps: {
 
       onProgress(0, 1);
       let result;
-      try {
-        result = await previewRef.current?.runPixiExport({
+      const renderOnce=async()=>{
+        const value = await previewRef.current?.runPixiExport({
           finalizationToken: finalizationReservation.token,
           resourcePlan: finalizationReservation.plan,
           onProgress,
@@ -746,6 +752,17 @@ export function createExportRunner(deps: {
           ...(nativeSink && sinkTarget ? { nativeSinkPixFmt: sinkTarget.pixFmt } : {}),
           ...(decodeRouting ? { decodeRouting } : {}),
         });
+        if(value&&nativeSink){setExportState({kind:'finalizing',step:'sink'});await exportVideoSinkFinish();}
+        return value;
+      };
+      try {
+        result=await withGpuExportFallback(renderOnce,async()=>{
+          console.warn('[gpu-final-export] transport failed; restarting the same range through the previous native sink');
+          await disableGpuExport();
+          if(exportController.signal.aborted)throw new ExportCancelled();
+          if(!sinkStartArgs)throw Error('Native sink parameters unavailable');
+          onProgress(0,1);await exportVideoSinkStart({...sinkStartArgs,gpuNativeSize:false});
+        },gpuExportActive,()=>exportController.signal.aborted);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (nativeSink) await exportVideoSinkCancel().catch(() => { });
@@ -764,21 +781,6 @@ export function createExportRunner(deps: {
           detail: "Preview not initialized.",
         });
         return;
-      }
-
-      // On the native-sink path, signal the sink that all frames have been
-      // sent. The sink flushes its encoder + muxer and writes the final
-      // tempVideoPath. Must run BEFORE mux.
-      if (nativeSink) {
-        setExportState({ kind: "finalizing", step: "sink" });
-        try {
-          await exportVideoSinkFinish();
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          console.error("[weftcut/pixi] sink finish failed:", e);
-          setExportState({ kind: "error", detail: `Finalize failed: ${msg}` });
-          return;
-        }
       }
 
       const durationUs = Math.round((result.totalFrames * 1_000_000 * result.fpsDen) / result.fpsNum);
