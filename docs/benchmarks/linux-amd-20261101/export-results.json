@@ -1,0 +1,398 @@
+{
+  "date": "2026-11-01",
+  "hardware": {
+    "gpu": "AMD Radeon RX 5700 XT 8GB",
+    "cpu": "2 x Xeon E5-2696 v3",
+    "logicalCpus": 72,
+    "hostRamKiB": 131831112,
+    "qaContainerMemoryGiB": 24,
+    "encoderCpuThreads": 4,
+    "kernel": "7.0.0-38-generic",
+    "mesa": "22.3.6",
+    "compositor": "Weston 10.0.1 headless hardware GL",
+    "electron": "44.9.3",
+    "chromium": "152.0.7977.167",
+    "angle": "OpenGL"
+  },
+  "fixture": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "frames": 120,
+    "seconds": 4,
+    "codec": "H.264",
+    "bitDepth": 8,
+    "bitrate": 8000000,
+    "rateMode": "VBR",
+    "gop": 30,
+    "audio": false
+  },
+  "appSource": {
+    "control": "f8195b83592c3414aeaf028a1e810d47382a56c2",
+    "bridge": "561b20f7991ae6063735be44da741a9838270519",
+    "nativeRuntime": "common ed24929a build; videosink.rs identical to v0.5.6; motif_frame.rs differs only by a comment"
+  },
+  "method": {
+    "warmup": 1,
+    "initialJobDefinition": "Fresh application profile per route, not an OS-page-cache cold test",
+    "measuredPerRoute": 5,
+    "pollingMs": 1000,
+    "order": [
+      "cpu",
+      "control",
+      "bridge"
+    ],
+    "concurrentHeavyJobs": false,
+    "limits": "Short synthetic scene, no audio/video decode; not a maximum-CPU or whole-editor speed claim"
+  },
+  "routes": [
+    {
+      "route": "cpu",
+      "coldWallMs": 40784,
+      "warmWallMs": [
+        10120,
+        10132,
+        10131,
+        10117,
+        10118
+      ],
+      "medianWarmWallMs": 10120,
+      "minWarmWallMs": 10117,
+      "maxWarmWallMs": 10132,
+      "rendererTotalMs": [
+        35417,
+        9111,
+        9267,
+        8953,
+        9002,
+        9170
+      ],
+      "probeSelected": 0,
+      "nativeCompletions": [],
+      "sourcePixelBytesPerJob": 373248000
+    },
+    {
+      "route": "control",
+      "coldWallMs": 39749,
+      "warmWallMs": [
+        10122,
+        10130,
+        10108,
+        10116,
+        10114
+      ],
+      "medianWarmWallMs": 10116,
+      "minWarmWallMs": 10108,
+      "maxWarmWallMs": 10130,
+      "rendererTotalMs": [
+        34625,
+        9228,
+        8928,
+        8803,
+        9240,
+        9085
+      ],
+      "probeSelected": 0,
+      "nativeCompletions": [],
+      "sourcePixelBytesPerJob": 373248000
+    },
+    {
+      "route": "bridge",
+      "coldWallMs": 40705,
+      "warmWallMs": [
+        10090,
+        10090,
+        10074,
+        10071,
+        10086
+      ],
+      "medianWarmWallMs": 10086,
+      "minWarmWallMs": 10071,
+      "maxWarmWallMs": 10090,
+      "rendererTotalMs": [
+        35569,
+        9111,
+        9174,
+        9354,
+        9224,
+        9435
+      ],
+      "probeSelected": 6,
+      "nativeCompletions": [
+        {
+          "bytes": 1362178,
+          "cpuPixelBytes": 0,
+          "elapsedMs": 35836.0897090435,
+          "encodeMs": 59.0838189125061,
+          "frames": 120,
+          "importMs": 17.31442928314209,
+          "packets": 120,
+          "vppMs": 81.51205372810364
+        },
+        {
+          "bytes": 1362178,
+          "cpuPixelBytes": 0,
+          "elapsedMs": 9368.153886795044,
+          "encodeMs": 48.42328715324402,
+          "frames": 120,
+          "importMs": 14.307562351226807,
+          "packets": 120,
+          "vppMs": 73.7218279838562
+        },
+        {
+          "bytes": 1362178,
+          "cpuPixelBytes": 0,
+          "elapsedMs": 9440.844997882843,
+          "encodeMs": 53.87587594985962,
+          "frames": 120,
+          "importMs": 18.8171443939209,
+          "packets": 120,
+          "vppMs": 73.71609377861023
+        },
+        {
+          "bytes": 1362178,
+          "cpuPixelBytes": 0,
+          "elapsedMs": 9603.295509815216,
+          "encodeMs": 54.30825591087341,
+          "frames": 120,
+          "importMs": 18.997925758361816,
+          "packets": 120,
+          "vppMs": 73.87476348876953
+        },
+        {
+          "bytes": 1362178,
+          "cpuPixelBytes": 0,
+          "elapsedMs": 9459.941919088364,
+          "encodeMs": 49.55183672904968,
+          "frames": 120,
+          "importMs": 17.75275993347168,
+          "packets": 120,
+          "vppMs": 66.56504774093628
+        },
+        {
+          "bytes": 1362178,
+          "cpuPixelBytes": 0,
+          "elapsedMs": 9676.727949857712,
+          "encodeMs": 53.473225355148315,
+          "frames": 120,
+          "importMs": 17.86300301551819,
+          "packets": 120,
+          "vppMs": 72.36647486686707
+        }
+      ],
+      "sourcePixelBytesPerJob": 0
+    }
+  ],
+  "quality": {
+    "nativeToBridge": {
+      "blockSsimY": 0.9999971002611238,
+      "frames": 120,
+      "identicalFrames": 0,
+      "maxSampleDifference": 8,
+      "mseYuv": 0.010100442601165981,
+      "p99FrameMse": 0.02254468878600823,
+      "planes": [
+        {
+          "meanSignedDifference": 0.0003940972222222222,
+          "mse": 0.0039799302340534975,
+          "psnrDb": 72.13204901666371
+        },
+        {
+          "meanSignedDifference": 0.018802533436213992,
+          "mse": 0.02719952417695473,
+          "psnrDb": 63.78519054228213
+        },
+        {
+          "meanSignedDifference": 0.008552211934156378,
+          "mse": 0.01748341049382716,
+          "psnrDb": 65.70454206358124
+        }
+      ],
+      "psnrYuvDb": 68.08739955893932,
+      "ptsMismatches": 0,
+      "worstFrames": [
+        {
+          "blockSsimY": 0.9999899204251683,
+          "frame": 7,
+          "mseYuv": 0.023879243827160494,
+          "seconds": 0.23333333333333334
+        },
+        {
+          "blockSsimY": 0.9999905731079265,
+          "frame": 6,
+          "mseYuv": 0.02254468878600823,
+          "seconds": 0.2
+        },
+        {
+          "blockSsimY": 0.9999900824901099,
+          "frame": 9,
+          "mseYuv": 0.022443737139917694,
+          "seconds": 0.3
+        },
+        {
+          "blockSsimY": 0.9999896926589995,
+          "frame": 8,
+          "mseYuv": 0.021856031378600822,
+          "seconds": 0.26666666666666666
+        },
+        {
+          "blockSsimY": 0.9999904177044278,
+          "frame": 5,
+          "mseYuv": 0.02124678497942387,
+          "seconds": 0.16666666666666666
+        },
+        {
+          "blockSsimY": 0.9999912576486002,
+          "frame": 12,
+          "mseYuv": 0.021185699588477366,
+          "seconds": 0.4
+        },
+        {
+          "blockSsimY": 0.9999906938534373,
+          "frame": 11,
+          "mseYuv": 0.021127507716049383,
+          "seconds": 0.36666666666666664
+        },
+        {
+          "blockSsimY": 0.9999899400178686,
+          "frame": 10,
+          "mseYuv": 0.020770961934156378,
+          "seconds": 0.3333333333333333
+        },
+        {
+          "blockSsimY": 0.9999908572315717,
+          "frame": 13,
+          "mseYuv": 0.02072370113168724,
+          "seconds": 0.43333333333333335
+        },
+        {
+          "blockSsimY": 0.9999913398295348,
+          "frame": 4,
+          "mseYuv": 0.01825102880658436,
+          "seconds": 0.13333333333333333
+        },
+        {
+          "blockSsimY": 0.9999924173435927,
+          "frame": 16,
+          "mseYuv": 0.01788548096707819,
+          "seconds": 0.5333333333333333
+        },
+        {
+          "blockSsimY": 0.999992154462472,
+          "frame": 3,
+          "mseYuv": 0.017772312242798353,
+          "seconds": 0.1
+        }
+      ]
+    },
+    "cpuToBridge": {
+      "blockSsimY": 0.9999914525960162,
+      "frames": 120,
+      "identicalFrames": 0,
+      "maxSampleDifference": 56,
+      "mseYuv": 0.019407616383744854,
+      "p99FrameMse": 0.1589962705761317,
+      "planes": [
+        {
+          "meanSignedDifference": -0.00009112975823045267,
+          "mse": 0.01617140882201646,
+          "psnrDb": 66.0433250441385
+        },
+        {
+          "meanSignedDifference": 0.020030574845679012,
+          "mse": 0.03113837448559671,
+          "psnrDb": 63.197844234887846
+        },
+        {
+          "meanSignedDifference": 0.007805877057613169,
+          "mse": 0.020621688528806584,
+          "psnrDb": 64.98756137906838
+        }
+      ],
+      "psnrYuvDb": 65.25108161644121,
+      "ptsMismatches": 0,
+      "worstFrames": [
+        {
+          "blockSsimY": 0.9999203873173214,
+          "frame": 4,
+          "mseYuv": 0.2817309670781893,
+          "seconds": 0.13333333333333333
+        },
+        {
+          "blockSsimY": 0.9999178852804624,
+          "frame": 1,
+          "mseYuv": 0.1589962705761317,
+          "seconds": 0.03333333333333333
+        },
+        {
+          "blockSsimY": 0.9999223829083476,
+          "frame": 2,
+          "mseYuv": 0.1428047839506173,
+          "seconds": 0.06666666666666667
+        },
+        {
+          "blockSsimY": 0.999921851534473,
+          "frame": 3,
+          "mseYuv": 0.13554108796296296,
+          "seconds": 0.1
+        },
+        {
+          "blockSsimY": 0.9999425876656312,
+          "frame": 5,
+          "mseYuv": 0.12552051183127572,
+          "seconds": 0.16666666666666666
+        },
+        {
+          "blockSsimY": 0.9998830201587968,
+          "frame": 0,
+          "mseYuv": 0.11962094907407407,
+          "seconds": 0
+        },
+        {
+          "blockSsimY": 0.9999486004541263,
+          "frame": 6,
+          "mseYuv": 0.10623939043209876,
+          "seconds": 0.2
+        },
+        {
+          "blockSsimY": 0.9999478948504439,
+          "frame": 7,
+          "mseYuv": 0.1013451646090535,
+          "seconds": 0.23333333333333334
+        },
+        {
+          "blockSsimY": 0.9999542740383116,
+          "frame": 8,
+          "mseYuv": 0.08384548611111112,
+          "seconds": 0.26666666666666666
+        },
+        {
+          "blockSsimY": 0.9999769580393313,
+          "frame": 9,
+          "mseYuv": 0.032858796296296296,
+          "seconds": 0.3
+        },
+        {
+          "blockSsimY": 0.9999792643735497,
+          "frame": 10,
+          "mseYuv": 0.02966499485596708,
+          "seconds": 0.3333333333333333
+        },
+        {
+          "blockSsimY": 0.9999809607937893,
+          "frame": 11,
+          "mseYuv": 0.029142232510288066,
+          "seconds": 0.36666666666666664
+        }
+      ]
+    }
+  },
+  "validation": {
+    "currentMainSmoke": {"gpuFrames": 6, "injectedFailureAtFrame": 7, "fallbackCompletedFrames": 30, "qaFaultBinaryPublished": false},
+    "files": 18,
+    "framesEach": 120,
+    "durationEach": 4,
+    "ptsMismatches": 0,
+    "visual": "One-second native/bridge comparison inspected; text, alpha-composited edges and countdown match visually"
+  }
+}

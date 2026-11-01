@@ -1,0 +1,1922 @@
+diff --git a/apps/desktop/e2e/fixtures/linux-amd-export/README.md b/apps/desktop/e2e/fixtures/linux-amd-export/README.md
+new file mode 100644
+index 0000000..73b13f8
+--- /dev/null
++++ b/apps/desktop/e2e/fixtures/linux-amd-export/README.md
+@@ -0,0 +1,43 @@
++# Linux AMD export comparison fixture
++
++Four seconds at 1920×1080 / 30 fps: built-in countdown Motif and animated text.
++No media, audio, accounts or external assets. Copy `project.json` to an empty
++project directory before opening it; caches and output must not be committed.
++
++Use one GPU/compositor/ANGLE backend, a fresh application profile per route,
++identical resource settings and no concurrent benchmark or build. On Linux,
++install the Mesa OpenGL and VA-API drivers and expose the same DRM render node
++to Chromium and VA-API. The measured bridge used hardware GL on Wayland;
++software-only/Pixman compositors did not provide shared textures and correctly
++fell back. Keep those runs out of a GPU-bridge performance row.
++
++Build the app and native artifacts first. Start it normally with a dedicated
++profile. Enable its local MCP connection; keep `mcp_auth.json` private. Run:
++
++```sh
++node apps/desktop/e2e/scripts/linux-amd-export-bench.mjs \
++  --auth=/path/to/dedicated-profile/mcp_auth.json \
++  --project=/path/to/copied-fixture --route=cpu --out=/path/to/results
++```
++
++Repeat with fresh profiles and `--route=native`, then `--route=bridge`:
++
++- CPU: `hw_accel=software`; confirm `libx264` in the encoder log/bitstream.
++- Native: launch the app with `WEFTCUT_GPU_FINAL_EXPORT=0`; confirm
++  `h264_vaapi` and the existing CPU-readback/rawvideo sink in the log.
++- Bridge: launch with `WEFTCUT_GPU_FINAL_EXPORT=1`; require a successful
++  `[gpu-final-export] probe`, `selected`, and `complete` for every job. A completed
++  file alone does not prove the bridge ran. No selection means fallback, not
++  acceleration. CPU-encoder threads are reported, not inferred from host cores.
++
++The script makes one excluded warm-up and five measured jobs; it records MCP
++wall time with 100 ms polling. The initial published comparison used the older
++local harness with 1 s polling, so its coarse MCP times must not be interpreted
++as precise sub-second differences. Renderer PERF SUMMARY and native stage
++timings provide a separate, finer-grained view, not the same measurement.
++
++Probe every file for 120 frames, 4 seconds, 1080p30, SDR8 BT.709 and no audio.
++Compare decoded full frames and PTS; inspect gradients, text and motion visually.
++Encoding is lossy: encoded-file hashes need not match. Keep quality results,
++all samples, failed selections, cold and warm timings separate. Do not publish
++profiles, traces, auth files, local paths or an unrelated user project.
+diff --git a/apps/desktop/e2e/fixtures/linux-amd-export/project.json b/apps/desktop/e2e/fixtures/linux-amd-export/project.json
+new file mode 100644
+index 0000000..68167bf
+--- /dev/null
++++ b/apps/desktop/e2e/fixtures/linux-amd-export/project.json
+@@ -0,0 +1,238 @@
++{
++  "schema_version": 5,
++  "project_id": "01a18c11-2a60-7df1-86cc-8ae17ed70dc1",
++  "metadata": {
++    "name": "Linux AMD export benchmark",
++    "created_at": "2026-10-30T09:08:17.632Z",
++    "modified_at": "2026-10-30T09:09:07.725Z",
++    "description": "Synthetic 1080p30 four-second countdown and animated-text fixture; no external media."
++  },
++  "compositions": {
++    "01a18c11-2a60-7078-847a-2324c947d0cd": {
++      "id": "01a18c11-2a60-7078-847a-2324c947d0cd",
++      "label": null,
++      "ordinal": 0,
++      "width": 1920,
++      "height": 1080,
++      "fps": {
++        "num": 30,
++        "den": 1
++      },
++      "sample_rate": 48000,
++      "channels": 2,
++      "color_space": "Bt709",
++      "background": {
++        "r": 0,
++        "g": 0,
++        "b": 0,
++        "a": 255
++      },
++      "duration_us": 4000000,
++      "duration_pinned": false,
++      "tracks": [
++        {
++          "id": "01a18c11-2a60-7ee5-8372-ac74032b2419",
++          "label": null,
++          "enabled": true,
++          "locked": false,
++          "muted": false,
++          "solo": false,
++          "removable": false,
++          "role": "ARoll",
++          "transient": false,
++          "height_px": 64,
++          "layers": []
++        },
++        {
++          "id": "01a18c11-2a60-78b7-a9db-3544a9d300c5",
++          "label": null,
++          "enabled": true,
++          "locked": false,
++          "muted": false,
++          "solo": false,
++          "removable": false,
++          "role": "BRoll",
++          "transient": false,
++          "height_px": 64,
++          "layers": []
++        },
++        {
++          "id": "01a18c11-ec5b-744d-9b16-64d767e04d97",
++          "label": null,
++          "enabled": true,
++          "locked": false,
++          "muted": false,
++          "solo": false,
++          "removable": true,
++          "role": null,
++          "transient": true,
++          "height_px": 64,
++          "layers": [
++            {
++              "id": "01a18c11-ec64-770c-96b1-c34e4e6e339c",
++              "label": null,
++              "t_start_us": 0,
++              "t_end_us": 4000000,
++              "enabled": true,
++              "locked": false,
++              "metadata": {},
++              "params": {
++                "kind": "Motif",
++                "motif_id": "countdown",
++                "motif_version": 1,
++                "props": {
++                  "accent": "#00ccff",
++                  "label": "GO",
++                  "seconds": 4
++                },
++                "src_in_us": 0,
++                "transform": {
++                  "position": {
++                    "mode": "XY",
++                    "x": {
++                      "mode": "Static",
++                      "value": 240
++                    },
++                    "y": {
++                      "mode": "Static",
++                      "value": 240
++                    }
++                  },
++                  "scale_x": {
++                    "mode": "Static",
++                    "value": 1
++                  },
++                  "scale_y": {
++                    "mode": "Static",
++                    "value": 1
++                  },
++                  "rotation_deg": {
++                    "mode": "Static",
++                    "value": 0
++                  },
++                  "anchor_x": {
++                    "mode": "Static",
++                    "value": 0.5
++                  },
++                  "anchor_y": {
++                    "mode": "Static",
++                    "value": 0.5
++                  },
++                  "scale_linked": true
++                },
++                "opacity": {
++                  "mode": "Static",
++                  "value": 1
++                },
++                "graphic_role": null
++              },
++              "effects": []
++            }
++          ]
++        },
++        {
++          "id": "01a18c11-ee0b-72eb-9d8d-48b11f8ae4a3",
++          "label": null,
++          "enabled": true,
++          "locked": false,
++          "muted": false,
++          "solo": false,
++          "removable": true,
++          "role": null,
++          "transient": true,
++          "height_px": 64,
++          "layers": [
++            {
++              "id": "01a18c11-ee0c-741a-bddc-440a987d6aba",
++              "label": null,
++              "t_start_us": 0,
++              "t_end_us": 4000000,
++              "enabled": true,
++              "locked": false,
++              "metadata": {},
++              "params": {
++                "kind": "Motif",
++                "motif_id": "text-fx",
++                "motif_version": 1,
++                "props": {
++                  "bg_color": "#00000000",
++                  "color": "#ffffff",
++                  "color2": "#00ccff",
++                  "effect": "color-shift",
++                  "font": "sans-latin",
++                  "font_size": 72,
++                  "h_align": "center",
++                  "loop": "loop",
++                  "outline_color": "#000000",
++                  "outline_width": 4,
++                  "text": "WAYLAND GPU EXPORT TEST",
++                  "type_speed": 20,
++                  "v_align": "bottom"
++                },
++                "src_in_us": 0,
++                "transform": {
++                  "position": {
++                    "mode": "XY",
++                    "x": {
++                      "mode": "Static",
++                      "value": 960
++                    },
++                    "y": {
++                      "mode": "Static",
++                      "value": 540
++                    }
++                  },
++                  "scale_x": {
++                    "mode": "Static",
++                    "value": 1
++                  },
++                  "scale_y": {
++                    "mode": "Static",
++                    "value": 1
++                  },
++                  "rotation_deg": {
++                    "mode": "Static",
++                    "value": 0
++                  },
++                  "anchor_x": {
++                    "mode": "Static",
++                    "value": 0.5
++                  },
++                  "anchor_y": {
++                    "mode": "Static",
++                    "value": 0.5
++                  },
++                  "scale_linked": true
++                },
++                "opacity": {
++                  "mode": "Static",
++                  "value": 1
++                },
++                "graphic_role": null
++              },
++              "effects": []
++            }
++          ]
++        }
++      ],
++      "markers": [],
++      "transitions": [],
++      "links": []
++    }
++  },
++  "root_id": "01a18c11-2a60-7078-847a-2324c947d0cd",
++  "next_group_ordinal": 1,
++  "media_pool": {},
++  "audio_roles": {},
++  "settings": {
++    "preview_width": 1280,
++    "preview_height": 720,
++    "autosave_interval_secs": 60,
++    "history_capacity": 200,
++    "auto_pair_audio_on_import": true,
++    "prefer_proxies": false,
++    "proxy_overrides": {},
++    "shot_review": null,
++    "pause_review": null
++  }
++}
+diff --git a/apps/desktop/e2e/scripts/linux-amd-export-bench.mjs b/apps/desktop/e2e/scripts/linux-amd-export-bench.mjs
+new file mode 100644
+index 0000000..084b471
+--- /dev/null
++++ b/apps/desktop/e2e/scripts/linux-amd-export-bench.mjs
+@@ -0,0 +1,75 @@
++// Opt-in export benchmark. Use a fresh app profile and the synthetic fixture;
++// this never opens an arbitrary user project or publishes credentials/logs.
++import fs from 'node:fs/promises';
++import path from 'node:path';
++import { randomUUID } from 'node:crypto';
++import { performance } from 'node:perf_hooks';
++import { Client } from '@modelcontextprotocol/sdk/client/index.js';
++import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
++
++const args = Object.fromEntries(process.argv.slice(2).map(value => {
++  const match = /^--(auth|project|route|samples|out)=(.+)$/.exec(value);
++  if (!match) throw Error('Expected --auth=FILE --project=DIR --route=cpu|native|bridge --out=DIR [--samples=5]');
++  return [match[1], match[2]];
++}));
++const samples = Number(args.samples ?? 5);
++if (!args.auth || !args.project || !args.out || !['cpu', 'native', 'bridge'].includes(args.route)
++  || !Number.isInteger(samples) || samples < 1 || samples > 20) throw Error('Invalid benchmark arguments');
++const project = path.resolve(args.project);
++const fixture = JSON.parse(await fs.readFile(path.join(project, 'project.json'), 'utf8'));
++if (fixture.metadata?.name !== 'Linux AMD export benchmark' || Object.keys(fixture.media_pool ?? {}).length)
++  throw Error('Only the bundled synthetic Linux AMD export fixture is accepted');
++const auth = JSON.parse(await fs.readFile(args.auth, 'utf8'));
++if (!Number.isInteger(auth.port) || auth.port < 1 || auth.port > 65535 || typeof auth.token !== 'string')
++  throw Error('Invalid local MCP connection');
++const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${auth.port}/mcp`), {
++  requestInit: { headers: { Authorization: `Bearer ${auth.token}` } },
++});
++const client = new Client({ name: 'linux-amd-export-benchmark', version: '1.0.0' });
++const call = async (name, input = {}) => {
++  const result = await client.callTool({ name, arguments: input }, undefined, { timeout: 180000 });
++  if (result.isError) throw Error(`Benchmark MCP operation failed: ${name}`);
++  return result.structuredContent ?? JSON.parse(result.content.find(item => item.type === 'text').text);
++};
++const report = { route: args.route, scope: '1080p30, 120 frames, SDR8 H.264, 8 Mbps VBR, no audio',
++  timing: 'MCP start_export to observed completed; 100 ms polling; one excluded warm-up',
++  actualRoute: 'Verify the application log; a requested route is not evidence of selection.', samples: [] };
++await fs.mkdir(args.out, { recursive: true });
++const output = await fs.mkdtemp(path.join(path.resolve(args.out), `${args.route}-`));
++try {
++  await client.connect(transport);
++  await call('open_project', { path: project });
++  const defaults = (await call('get_export_options')).settings;
++  for (let sample = 0; sample <= samples; sample++) {
++    const began = performance.now();
++    const job = await call('start_export', { request_id: randomUUID(), on_conflict: 'fail',
++      output_path: path.join(output, `${sample}.mp4`), range: { start_us: 0, end_us: 4000000 }, settings: {
++        ...defaults, include_video: true, include_audio: false,
++        audio: { ...defaults.audio, include: false }, resolution_height: null, fps: null,
++        codec: 'h264', container: 'mp4', quality: 'custom', custom_bitrate: 8000000,
++        rate_mode: 'vbr', crf: null, max_bitrate: null, buffer_size: null, preset: 'medium',
++        hw_accel: args.route === 'cpu' ? 'software' : 'auto', encoder_engine: 'native',
++        decode_engine: 'ffmpeg', bit_depth: 8, keyframe_interval_sec: 1,
++      } });
++    const deadline = performance.now() + 600000;
++    for (;;) {
++      if (performance.now() > deadline) {
++        await call('cancel_export', { job_id: job.job_id });
++        throw Error('Export exceeded the ten-minute sample deadline');
++      }
++      const status = await call('get_export_status', { job_id: job.job_id });
++      if (['failed', 'cancelled', 'awaiting_retry'].includes(status.state)) throw Error(`Export ${status.state}`);
++      if (status.state === 'completed') break;
++      await new Promise(resolve => setTimeout(resolve, 100));
++    }
++    const row = { sample, warmup: sample === 0, wallMs: performance.now() - began };
++    report.samples.push(row);
++    console.log(JSON.stringify(row));
++  }
++  const warm = report.samples.filter(row => !row.warmup).map(row => row.wallMs).sort((a, b) => a - b);
++  report.summary = { medianMs: warm[Math.floor(warm.length / 2)], minMs: warm[0], maxMs: warm.at(-1) };
++  await fs.writeFile(path.join(output, 'result.json'), JSON.stringify(report, null, 2) + '\n', { flag: 'wx' });
++} finally {
++  await transport.terminateSession().catch(() => {});
++  await client.close();
++}
+diff --git a/apps/desktop/electron.vite.config.ts b/apps/desktop/electron.vite.config.ts
+index 59063b3..37e5ac1 100644
+--- a/apps/desktop/electron.vite.config.ts
++++ b/apps/desktop/electron.vite.config.ts
+@@ -91,7 +91,7 @@ export default defineConfig({
+   preload: {
+     build: {
+       outDir: 'out/preload',
+-      lib: { entry: { index: 'src/preload/index.ts', screenPick: 'src/preload/screenPick.ts' }, formats: ['cjs'] },
++      lib: { entry: { index: 'src/preload/index.ts', screenPick: 'src/preload/screenPick.ts', gpuExportHost:'src/preload/gpuExportHost.ts' }, formats: ['cjs'] },
+       rollupOptions: { output: { entryFileNames: '[name].js' } },
+     },
+   },
+diff --git a/apps/desktop/src/main/index.ts b/apps/desktop/src/main/index.ts
+index 2754430..44cd278 100644
+--- a/apps/desktop/src/main/index.ts
++++ b/apps/desktop/src/main/index.ts
+@@ -1,3 +1,4 @@
++import './linuxGpuExport.js';
+ import { ExportJobs, exportPathExists, suggestExportName } from "./exportJobs";
+ import path from 'node:path'
+ import { diagnosticOwner, recordDiagnostic, recordProjectDiagnostic } from './diagnostics'
+diff --git a/apps/desktop/src/main/linuxGpuExport.test.ts b/apps/desktop/src/main/linuxGpuExport.test.ts
+new file mode 100644
+index 0000000..6b7bd14
+--- /dev/null
++++ b/apps/desktop/src/main/linuxGpuExport.test.ts
+@@ -0,0 +1,241 @@
++import { beforeEach, describe, expect, it, vi } from "vitest";
++const mock = vi.hoisted(() => ({
++  handlers: new Map<string, (...args: any[]) => any>(),
++  events: new Map<string, (...args: any[]) => void>(),
++  windows: [] as any[],
++  quality: true,
++  throwFrame: false,
++  release: vi.fn(),
++  textureRelease: vi.fn(),
++  start: vi.fn(),
++  finish: vi.fn(),
++  cancel: vi.fn(),
++  verify: vi.fn(),
++  frame: vi.fn(),
++  vendor: "0x1002",
++}));
++vi.mock("electron", () => ({
++  app: {
++    on: (name: string, cb: any) => mock.events.set(name, cb),
++    getGPUInfo: async () => ({
++      gpuDevice: [{ vendorId: 0x1002, active: true }],
++    }),
++  },
++  ipcMain: { handle: (name: string, cb: any) => mock.handlers.set(name, cb) },
++  BrowserWindow: class {
++    webContents: any;
++    constructor() {
++      const mainFrame = {};
++      this.webContents = {
++        id: 100 + mock.windows.length,
++        mainFrame,
++        setFrameRate: vi.fn(),
++        executeJavaScript: async () => {},
++        capturePage: async () => ({
++          toBitmap: () => Buffer.alloc(32 * 16 * 4),
++        }),
++        postMessage: vi.fn(),
++      };
++      mock.windows.push(this);
++    }
++    loadURL = async () => {};
++    destroy = vi.fn();
++    isDestroyed = () => false;
++  },
++  MessageChannelMain: class {
++    port1 = {};
++    port2 = {};
++  },
++}));
++vi.mock("node:module", () => ({
++  createRequire: () =>
++    Object.assign(
++      () => ({
++        start: mock.start,
++        frame: mock.frame,
++        finish: mock.finish,
++        cancel: mock.cancel,
++        verify: mock.verify,
++      }),
++      { resolve: () => "/native/index.js" },
++    ),
++}));
++vi.mock("node:fs/promises", () => ({
++  default: {
++    readFile: async () => mock.vendor,
++    readdir: async () => ["renderD128"],
++    rm: async () => {},
++  },
++}));
++vi.mock("./windows", () => ({
++  markInternalWindow: vi.fn(),
++  hardenWindow: vi.fn(),
++}));
++vi.mock("./resourceIpc", () => ({ resolveExportFinalization: () => 7 }));
++vi.mock("./resources", () => ({ reserveResources: () => mock.release }));
++vi.mock("./motif/offscreenFrames", () => ({
++  OffscreenFrames: class {
++    dispose = vi.fn();
++    capture = async () => ({
++      release: mock.textureRelease,
++      textureInfo: {
++        pixelFormat: "bgra",
++        visibleRect: { x: 0, y: 0, width: 32, height: 16 },
++        handle: {
++          nativePixmap: {
++            modifier: "0",
++            planes: [{ fd: 9, stride: 128, offset: 0, size: 2048 }],
++          },
++        },
++      },
++    });
++  },
++}));
++const args = {
++  width: 32,
++  height: 16,
++  fpsNum: 30,
++  fpsDen: 1,
++  codec: "h264",
++  pixFmt: "yuv420p",
++  bitrate: 8000000,
++  cbr: false,
++  gop: 30,
++  software: false,
++  outputPath: "/tmp/weftcut-export-example-video.mp4",
++  finalizationToken: "token",
++};
++const owner = () => {
++  const sender = {
++    id: 77,
++    mainFrame: {},
++    postMessage: vi.fn(),
++    once: vi.fn(),
++    removeListener: vi.fn(),
++    executeJavaScript: async () => "ANGLE (AMD, Radeon RX 5700 XT)",
++  };
++  return { sender, senderFrame: sender.mainFrame };
++};
++beforeEach(async () => {
++  vi.resetModules();
++  vi.clearAllMocks();
++  mock.handlers.clear();
++  mock.events.clear();
++  mock.windows = [];
++  mock.quality = true;
++  mock.throwFrame = false;
++  mock.vendor = "0x1002";
++  process.env.WEFTCUT_GPU_FINAL_EXPORT = "1";
++  mock.start.mockReturnValue("{}");
++  mock.frame.mockImplementation(async () => {
++    if (mock.throwFrame) throw Error("driver rejected surface");
++    return "{}";
++  });
++  mock.finish.mockReturnValue('{"frames":3,"bytes":100,"elapsedMs":1}');
++  mock.cancel.mockReturnValue("{}");
++  mock.verify.mockImplementation(() =>
++    JSON.stringify({ quality: mock.quality, frames: 3, rgbRmse: [1, 1, 1] }),
++  );
++  await import("./linuxGpuExport");
++});
++const start = (event = owner()) =>
++  mock.handlers.get("gpu-export:start")!(event, args);
++describe.skipIf(process.platform !== "linux")(
++  "Linux AMD final sink lifecycle",
++  () => {
++    it("keeps the established sink by default until explicitly opted in", async () => {
++      delete process.env.WEFTCUT_GPU_FINAL_EXPORT;
++      expect(await start()).toBeNull();
++      expect(mock.start).not.toHaveBeenCalled();
++    });
++    it("qualifies all three encoded frames before selecting and caches the verdict", async () => {
++      const event = owner();
++      expect(await start(event)).toHaveProperty("token");
++      expect(mock.frame).toHaveBeenCalledTimes(3);
++      expect(mock.verify).toHaveBeenCalledTimes(1);
++      await mock.handlers.get("gpu-export:finish")!(event);
++      expect(mock.release).toHaveBeenCalledTimes(2);
++      expect(event.sender.removeListener).toHaveBeenCalledTimes(2);
++      expect(await start(event)).toHaveProperty("token");
++      expect(mock.verify).toHaveBeenCalledTimes(1);
++      await mock.handlers.get("gpu-export:cancel")!(event);
++    });
++    it("retains the old path on failed quality, and never opens a real sink", async () => {
++      mock.quality = false;
++      expect(await start()).toBeNull();
++      expect(mock.start).toHaveBeenCalledTimes(1);
++      expect(mock.textureRelease).toHaveBeenCalledTimes(3);
++      expect(mock.release).toHaveBeenCalledTimes(1);
++      expect(await start()).toBeNull();
++      expect(mock.verify).toHaveBeenCalledTimes(1);
++    });
++    it("does not load native code for NVIDIA or explicit disable", async () => {
++      mock.vendor = "0x10de";
++      expect(await start()).toBeNull();
++      mock.vendor = "0x1002";
++      process.env.WEFTCUT_GPU_FINAL_EXPORT = "0";
++      expect(await start()).toBeNull();
++      expect(mock.start).not.toHaveBeenCalled();
++    });
++    it("disables failed transport for the rest of the GPU generation", async () => {
++      const event = owner();
++      await start(event);
++      mock.throwFrame = true;
++      const wc = mock.windows.at(-1).webContents;
++      await expect(
++        mock.handlers.get("gpu-export:consume")!(
++          { sender: wc, senderFrame: wc.mainFrame },
++          0,
++        ),
++      ).rejects.toThrow("GPU_FINAL_EXPORT_FAILED");
++      await mock.handlers.get("gpu-export:disable")!(event);
++      expect(await start(event)).toBeNull();
++      expect(mock.textureRelease).toHaveBeenCalledTimes(4);
++    });
++    it("drains an in-flight frame on cancellation without poisoning the GPU verdict", async () => {
++      const event = owner();
++      await start(event);
++      let complete: ((value: string) => void) | undefined;
++      mock.frame.mockImplementationOnce(
++        () =>
++          new Promise<string>((resolve) => {
++            complete = resolve;
++          }),
++      );
++      const wc = mock.windows.at(-1).webContents;
++      const pending = mock.handlers.get("gpu-export:consume")!(
++        { sender: wc, senderFrame: wc.mainFrame },
++        0,
++      );
++      const rejected = expect(pending).rejects.toThrow("GPU export cancelled");
++      await vi.waitFor(() => expect(complete).toBeTypeOf("function"));
++      const cancel = mock.handlers.get("gpu-export:cancel")!(event);
++      complete!("{}");
++      await Promise.all([cancel, rejected]);
++      expect(await start(event)).toHaveProperty("token");
++      expect(mock.verify).toHaveBeenCalledTimes(1);
++      await mock.handlers.get("gpu-export:cancel")!(event);
++    });
++    it("rejects a different renderer and an out-of-order frame", async () => {
++      const event = owner();
++      await start(event);
++      const wc = mock.windows.at(-1).webContents;
++      expect(() => mock.handlers.get("gpu-export:prepare")!(event, 0)).toThrow(
++        "Unowned",
++      );
++      expect(() =>
++        mock.handlers.get("gpu-export:prepare")!(
++          { sender: wc, senderFrame: wc.mainFrame },
++          1,
++        ),
++      ).toThrow("Unowned");
++      await expect(
++        mock.handlers.get("gpu-export:cancel")!({
++          ...event,
++          sender: { ...event.sender, id: 999 },
++        }),
++      ).rejects.toThrow("Unowned");
++      await mock.handlers.get("gpu-export:cancel")!(event);
++    });
++  },
++);
+diff --git a/apps/desktop/src/main/linuxGpuExport.ts b/apps/desktop/src/main/linuxGpuExport.ts
+new file mode 100644
+index 0000000..e8195f0
+--- /dev/null
++++ b/apps/desktop/src/main/linuxGpuExport.ts
+@@ -0,0 +1,497 @@
++import {
++  app,
++  BrowserWindow,
++  ipcMain,
++  MessageChannelMain,
++  type WebContents,
++} from "electron";
++import { createRequire } from "node:module";
++import { constants, tmpdir } from "node:os";
++import path from "node:path";
++import fs from "node:fs/promises";
++import { randomUUID } from "node:crypto";
++import { OffscreenFrames } from "./motif/offscreenFrames";
++import { GPU_EXPORT_HOST } from "./linuxGpuExportHost";
++import {
++  amdRenderDevice,
++  gpuExportEligible,
++  GPU_EXPORT_FAILURE,
++  type GpuExportArgs,
++} from "../shared/linuxGpuExport";
++import { markInternalWindow, hardenWindow } from "./windows";
++import { resolveExportFinalization } from "./resourceIpc";
++import { reserveResources } from "./resources";
++
++type Sink = {
++  start(args: string): string;
++  frame(args: string): Promise<string>;
++  finish(): string;
++  cancel(): string;
++  verify(file: string, refs: Buffer[], w: number, h: number): string;
++};
++type Job = {
++  owner: number;
++  token: string;
++  args: GpuExportArgs;
++  device: string;
++  key: string;
++  index: number;
++  win: BrowserWindow;
++  frames: OffscreenFrames;
++  release: () => void;
++  offOwner?: () => void;
++  inflight?: Promise<unknown>;
++  closing?: Promise<void>;
++  closed: boolean;
++};
++let sink: Sink | undefined,
++  job: Job | undefined,
++  starting = false,
++  generation = 0;
++const verdicts = new Map<string, boolean>();
++const failedDevices = new Set<string>();
++const verdictKey = (device: string, args: GpuExportArgs) =>
++  `${generation}:${device}:${args.codec}:${args.width}x${args.height}:${args.fpsNum}/${args.fpsDen}:${args.bitrate}:${args.gop}`;
++function addon(): Sink {
++  if (sink) return sink;
++  const require_ = createRequire(import.meta.url),
++    original = process.dlopen;
++  try {
++    process.dlopen = (module, filename, flags) =>
++      original.call(
++        process,
++        module,
++        filename,
++        (flags ?? 0) |
++          constants.dlopen.RTLD_NOW |
++          constants.dlopen.RTLD_LOCAL |
++          constants.dlopen.RTLD_DEEPBIND,
++      );
++    return (sink = require_(
++      path.join(
++        path.dirname(require_.resolve("@weftcut/native-decode")),
++        "linux-gpu-export.node",
++      ),
++    ) as Sink);
++  } finally {
++    process.dlopen = original;
++  }
++}
++function bounded<T>(work: Promise<T>, ms: number, reason: string): Promise<T> {
++  let timer: ReturnType<typeof setTimeout>;
++  return Promise.race([
++    work,
++    new Promise<never>((_, reject) => {
++      timer = setTimeout(() => reject(Error(reason)), ms);
++    }),
++  ]).finally(() => clearTimeout(timer!));
++}
++function cleanup(active: Job): Promise<void> {
++  if (active.closing) return active.closing;
++  active.closed = true;
++  return (active.closing = Promise.resolve().then(async () => {
++    // Retain the source lease until the native async VPP/encoder work completes.
++    try {
++      await active.inflight;
++    } catch {
++      /* failure is reported by consume */
++    }
++    if (job === active) {
++      sink?.cancel();
++      job = undefined;
++    }
++    active.offOwner?.();
++    active.frames.dispose();
++    if (!active.win.isDestroyed()) active.win.destroy();
++    active.release();
++  }));
++}
++async function open(
++  owner: WebContents,
++  args: GpuExportArgs,
++  device: string,
++  key: string,
++  parent?: number,
++): Promise<Job> {
++  const native = addon(); // Absence must not consume any of the old sink's admission.
++  // The admitted native export parent already owns its CPU phase. Borrow only
++  // memory: returning a child intentionally does not replenish plan threads.
++  // Spending even one here would make a later standard-sink fallback impossible.
++  // Match the planner's standard native-sink envelope (videosink.rs), including
++  // probe references, surface pools and decoder/VPP overhead.
++  const release = reserveResources(
++    parent === undefined ? 1 : 0,
++    128 + Math.ceil((args.width * args.height * 32) / 1048576),
++    parent,
++  );
++  let win: BrowserWindow | undefined;
++  try {
++    native.start(JSON.stringify({ ...args, device }));
++    win = new BrowserWindow({
++      show: false,
++      width: args.width,
++      height: args.height,
++      useContentSize: true,
++      transparent: true,
++      webPreferences: {
++        preload: path.join(import.meta.dirname, "../preload/gpuExportHost.js"),
++        sandbox: true,
++        contextIsolation: true,
++        nodeIntegration: false,
++        backgroundThrottling: false,
++        offscreen: { useSharedTexture: true },
++      },
++    });
++    markInternalWindow(win);
++    hardenWindow(win, { allowExternalOpen: false });
++    win.webContents.setFrameRate(120);
++    const active: Job = {
++      owner: owner.id,
++      args,
++      device,
++      key,
++      index: 0,
++      token: randomUUID(),
++      win,
++      frames: new OffscreenFrames(win.webContents),
++      release,
++      closed: false,
++    };
++    job = active;
++    await bounded(
++      win.loadURL(
++        "data:text/html;charset=utf-8," + encodeURIComponent(GPU_EXPORT_HOST),
++      ),
++      10000,
++      "GPU host startup timeout",
++    );
++    return active;
++  } catch (error) {
++    if (win && !win.isDestroyed()) win.destroy();
++    sink?.cancel();
++    job = undefined;
++    release();
++    throw error;
++  }
++}
++async function consume(active: Job, index: number) {
++  if (active.closed || job !== active || index !== active.index)
++    throw Error("GPU frame sequence mismatch");
++  const texture = await active.frames.capture(
++    active.args.width,
++    active.args.height,
++    () =>
++      bounded(
++        active.win.webContents.capturePage(),
++        3000,
++        "GPU surface fence timeout",
++      ),
++  );
++  try {
++    const info = texture.textureInfo,
++      pixmap = info.handle.nativePixmap;
++    if (
++      !pixmap ||
++      pixmap.planes.length !== 1 ||
++      info.visibleRect.x ||
++      info.visibleRect.y ||
++      info.visibleRect.width !== active.args.width ||
++      info.visibleRect.height !== active.args.height ||
++      !["rgba", "bgra"].includes(info.pixelFormat)
++    )
++      throw Error("Unsupported export texture");
++    const pending = addon().frame(
++      JSON.stringify({
++        index,
++        width: active.args.width,
++        height: active.args.height,
++        pixelFormat: info.pixelFormat,
++        modifier: pixmap.modifier,
++        ...pixmap.planes[0],
++      }),
++    );
++    active.inflight = pending;
++    await pending;
++    if (active.closed) throw Error("GPU export closed");
++    active.index++;
++  } finally {
++    active.inflight = undefined;
++    texture.release();
++  }
++}
++async function probe(
++  owner: WebContents,
++  args: GpuExportArgs,
++  device: string,
++  key: string,
++  parent?: number,
++): Promise<boolean> {
++  const probeFile = path.join(
++    tmpdir(),
++    `weftcut-export-${randomUUID()}-gpu-probe.mp4`,
++  );
++  let active: Job | undefined;
++  try {
++    active = await open(
++      owner,
++      { ...args, outputPath: probeFile },
++      device,
++      key,
++      parent,
++    );
++    const refs: Buffer[] = [];
++    for (let n = 0; n < 3; n++) {
++      await bounded(
++        active.win.webContents.executeJavaScript(
++          `window.__gpuProbe(${n},${args.width},${args.height})`,
++        ),
++        4000,
++        "GPU probe draw timeout",
++      );
++      refs.push(
++        (
++          await bounded(
++            active.win.webContents.capturePage(),
++            3000,
++            "GPU probe reference timeout",
++          )
++        ).toBitmap(),
++      );
++      await consume(active, n);
++    }
++    addon().finish();
++    const result = JSON.parse(
++      addon().verify(probeFile, refs, args.width, args.height),
++    ) as { quality: boolean; frames: number; rgbRmse: number[] };
++    console.info(
++      "[gpu-final-export] probe",
++      JSON.stringify({ device, codec: args.codec, ...result }),
++    );
++    return result.quality && result.frames === 3;
++  } catch (error) {
++    if (String(error).includes("resource-capacity-exceeded")) throw error;
++    console.warn("[gpu-final-export] probe declined:", String(error));
++    return false;
++  } finally {
++    if (active) await cleanup(active);
++    await fs.rm(probeFile, { force: true }).catch(() => {});
++  }
++}
++async function amdDevice(owner: WebContents): Promise<string | null> {
++  const explicit = process.env.WEFTCUT_VAAPI_DEVICE;
++  if (explicit && !/^\/dev\/dri\/renderD\d+$/.test(explicit)) return null;
++  try {
++    const info = (await app.getGPUInfo("complete")) as {
++      gpuDevice?: { vendorId: number; deviceId?: number; active?: boolean }[];
++      auxAttributes?: { glRenderer?: string };
++    };
++    const devices = info.gpuDevice ?? [],
++      active = devices.filter((d) => d.active);
++    const names = explicit
++      ? [path.basename(explicit)]
++      : (await fs.readdir("/sys/class/drm")).filter((name) =>
++          /^renderD\d+$/.test(name),
++        );
++    let nodes: string[] = [];
++    for (const name of names) {
++      if (
++        (await fs.readFile(`/sys/class/drm/${name}/device/vendor`, "utf8"))
++          .trim()
++          .toLowerCase() === "0x1002"
++      )
++        nodes.push(name);
++    }
++    if (nodes.length > 1 && active.length === 1 && active[0]?.deviceId) {
++      const deviceId = active[0].deviceId;
++      const matches = await Promise.all(
++        nodes.map(async (name) => ({
++          name,
++          id: Number(
++            (
++              await fs.readFile(`/sys/class/drm/${name}/device/device`, "utf8")
++            ).trim(),
++          ),
++        })),
++      );
++      nodes = matches
++        .filter((node) => node.id === deviceId)
++        .map((node) => node.name);
++    }
++    if (nodes.length !== 1) return null;
++    const device = "/dev/dri/" + nodes[0],
++      vendor = "0x1002";
++    const vendors = (active.length ? active : devices).map((d) => d.vendorId);
++    let renderer = info.auxAttributes?.glRenderer ?? "";
++    if (!renderer)
++      renderer = String(
++        await bounded(
++          owner.executeJavaScript(
++            `(()=>{const c=document.createElement('canvas');c.width=1;c.height=1;const gl=c.getContext('webgl2');if(!gl)return '';const ext=gl.getExtension('WEBGL_debug_renderer_info');const result=ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'';gl.getExtension('WEBGL_lose_context')?.loseContext();return result;})()`,
++          ),
++          3000,
++          "GPU identity timeout",
++        ),
++      );
++    const qualified = amdRenderDevice(device, vendor, vendors, renderer);
++    if (!qualified)
++      console.info(
++        "[gpu-final-export] device declined",
++        JSON.stringify({ device, vendor: vendor.trim(), vendors, renderer }),
++      );
++    return qualified ? device : null;
++  } catch (error) {
++    console.info("[gpu-final-export] AMD device unavailable:", String(error));
++    return null;
++  }
++}
++export function gpuExportEncoder(output: string) {
++  return job && !job.closed && job.args.outputPath === output
++    ? {
++        encoder: job.args.codec + "_vaapi",
++        device: "gpu" as const,
++        utilization_percent: null,
++      }
++    : null;
++}
++
++if (process.platform === "linux") {
++  app.on("child-process-gone", (_event, details) => {
++    if (details.type === "GPU") {
++      generation++;
++      verdicts.clear();
++      failedDevices.clear();
++      if (job) void cleanup(job);
++    }
++  });
++  app.on("before-quit", () => {
++    if (job) void cleanup(job);
++  });
++  ipcMain.handle("gpu-export:start", async (event, args: GpuExportArgs) => {
++    if (event.senderFrame !== event.sender.mainFrame)
++      throw Error("GPU export requires main frame");
++    if (
++      process.env.WEFTCUT_GPU_FINAL_EXPORT !== "1" ||
++      !gpuExportEligible(args)
++    )
++      return null;
++    // Resizing/10-bit are excluded by the caller and by worker validation too.
++    const device = await amdDevice(event.sender);
++    if (!device || failedDevices.has(device)) return null;
++    if (starting || job) throw Error("GPU export already active");
++    starting = true;
++    const key = verdictKey(device, args);
++    try {
++      const parent = resolveExportFinalization(
++        event.sender.id,
++        args.finalizationToken,
++      );
++      if (
++        !args.finalizationToken ||
++        path.dirname(args.outputPath) !== path.resolve(tmpdir()) ||
++        !/^weftcut-export-[\w-]+-video\.mp4$/.test(
++          path.basename(args.outputPath),
++        )
++      )
++        return null;
++      if (!verdicts.has(key))
++        verdicts.set(key, await probe(event.sender, args, device, key, parent));
++      if (!verdicts.get(key) || key !== verdictKey(device, args)) return null;
++      const active = await open(event.sender, args, device, key, parent),
++        channel = new MessageChannelMain();
++      active.win.webContents.postMessage(
++        "gpu-export:port",
++        { token: active.token },
++        [channel.port2],
++      );
++      event.sender.postMessage("gpu-export:port", { token: active.token }, [
++        channel.port1,
++      ]);
++      const close = () => {
++        if (job === active) void cleanup(active);
++      };
++      event.sender.once("destroyed", close);
++      event.sender.once("render-process-gone", close);
++      active.offOwner = () => {
++        event.sender.removeListener("destroyed", close);
++        event.sender.removeListener("render-process-gone", close);
++      };
++      console.info(
++        "[gpu-final-export] selected",
++        JSON.stringify({
++          device,
++          codec: args.codec,
++          width: args.width,
++          height: args.height,
++        }),
++      );
++      return { token: active.token };
++    } catch (error) {
++      if (job) await cleanup(job);
++      if (String(error).includes("resource-capacity-exceeded")) throw error;
++      verdicts.set(key, false);
++      console.warn(
++        "[gpu-final-export] retaining previous sink:",
++        String(error),
++      );
++      return null;
++    } finally {
++      starting = false;
++    }
++  });
++  const hostJob = (event: Electron.IpcMainInvokeEvent, index: number) => {
++    const active = job;
++    if (
++      !active ||
++      event.sender !== active.win.webContents ||
++      event.senderFrame !== event.sender.mainFrame ||
++      index !== active.index
++    )
++      throw Error("Unowned GPU frame");
++    return active;
++  };
++  ipcMain.handle("gpu-export:prepare", (event, index: number) => {
++    const active = hostJob(event, index);
++    return { width: active.args.width, height: active.args.height };
++  });
++  ipcMain.handle("gpu-export:consume", async (event, index: number) => {
++    const active = hostJob(event, index);
++    try {
++      await consume(active, index);
++    } catch (error) {
++      if (active.closed) throw Error("GPU export cancelled");
++      verdicts.set(active.key, false);
++      failedDevices.add(active.device);
++      throw Error(GPU_EXPORT_FAILURE + ": " + String(error));
++    }
++  });
++  ipcMain.handle("gpu-export:finish", async (event) => {
++    const active = job;
++    if (!active || event.sender.id !== active.owner)
++      throw Error("Unowned GPU export");
++    try {
++      const result = JSON.parse(addon().finish());
++      console.info("[gpu-final-export] complete", JSON.stringify(result));
++      return result;
++    } catch (error) {
++      verdicts.set(active.key, false);
++      failedDevices.add(active.device);
++      throw Error(GPU_EXPORT_FAILURE + ": " + String(error));
++    } finally {
++      await cleanup(active);
++    }
++  });
++  ipcMain.handle("gpu-export:cancel", async (event) => {
++    if (job) {
++      if (event.sender.id !== job.owner) throw Error("Unowned GPU cancel");
++      await cleanup(job);
++    }
++  });
++  ipcMain.handle("gpu-export:disable", async (event) => {
++    if (job) {
++      if (event.sender.id !== job.owner) throw Error("Unowned GPU disable");
++      verdicts.set(job.key, false);
++      failedDevices.add(job.device);
++      await cleanup(job);
++    }
++  });
++}
+diff --git a/apps/desktop/src/main/linuxGpuExportHost.ts b/apps/desktop/src/main/linuxGpuExportHost.ts
+new file mode 100644
+index 0000000..d98aae7
+--- /dev/null
++++ b/apps/desktop/src/main/linuxGpuExportHost.ts
+@@ -0,0 +1,25 @@
++// Local, fixed document: no user HTML, network, filesystem or editor controls.
++export const GPU_EXPORT_HOST = `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'"><style>html,body{margin:0;overflow:hidden;background:#000}canvas{display:block}</style></head><body><canvas></canvas><script>
++const canvas=document.querySelector('canvas');let context;
++async function paint(bitmap,width,height){
++ if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;context=null;}
++ context??=canvas.getContext('2d',{alpha:false});context.drawImage(bitmap,0,0);bitmap.close();
++ await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
++}
++window.__gpuProbe=async function(index,width,height){
++ const test=document.createElement('canvas');test.width=width;test.height=height;
++ const c=test.getContext('2d');const gradient=c.createLinearGradient(0,0,width,height);
++ gradient.addColorStop(0,['#802010','#108040','#204080'][index]);gradient.addColorStop(1,'#282828');c.fillStyle=gradient;c.fillRect(0,0,width,height);
++ c.fillStyle=['#ff3030','#30ff30','#3030ff'][index];c.fillRect(width*.1,height*.2,width*.3,height*.4);
++ c.fillStyle='#fff';c.font=Math.max(24,Math.floor(height*.08))+'px sans-serif';c.fillText('GPU '+index+' · Aa 123',width*.08,height*.85);
++ await paint(await createImageBitmap(test),width,height);
++};
++window.addEventListener('message',event=>{
++ if(event.source!==window||event.data?.type!=='gpu-export-port'||event.ports.length!==1)return;
++ const token=event.data.token,port=event.ports[0];port.onmessage=async event=>{
++  const data=event.data;if(data?.type!=='gpu-final-frame'||data.token!==token)return;
++  try{const size=await window.gpuFrame.prepare(data.index);await paint(data.bitmap,size.width,size.height);await window.gpuFrame.consume(data.index);port.postMessage({type:'gpu-frame-ack',token,index:data.index});}
++  catch(error){data.bitmap?.close();port.postMessage({type:'gpu-frame-ack',token,index:data.index,error:String(error)});}
++ };port.start();
++});
++</script></body></html>`;
+diff --git a/apps/desktop/src/preload/gpuExportHost.ts b/apps/desktop/src/preload/gpuExportHost.ts
+new file mode 100644
+index 0000000..ab36a96
+--- /dev/null
++++ b/apps/desktop/src/preload/gpuExportHost.ts
+@@ -0,0 +1,12 @@
++import { contextBridge, ipcRenderer } from "electron";
++contextBridge.exposeInMainWorld("gpuFrame", {
++  prepare: (index: number) => ipcRenderer.invoke("gpu-export:prepare", index),
++  consume: (index: number) => ipcRenderer.invoke("gpu-export:consume", index),
++});
++ipcRenderer.on("gpu-export:port", (event, data) =>
++  window.postMessage(
++    { type: "gpu-export-port", token: data.token },
++    "*",
++    event.ports,
++  ),
++);
+diff --git a/apps/desktop/src/preload/index.ts b/apps/desktop/src/preload/index.ts
+index c1bc3a0..c5a00d5 100644
+--- a/apps/desktop/src/preload/index.ts
++++ b/apps/desktop/src/preload/index.ts
+@@ -1,4 +1,11 @@
+ import { contextBridge, ipcRenderer, sharedTexture, webUtils } from 'electron'
++if(process.platform==='linux'){
++ ipcRenderer.on('gpu-export:port',(event,data)=>window.postMessage({type:'gpu-export-port',token:data.token},'*',event.ports));
++ contextBridge.exposeInMainWorld('linuxGpuExport',{
++  start:(args:unknown)=>ipcRenderer.invoke('gpu-export:start',args),finish:()=>ipcRenderer.invoke('gpu-export:finish'),
++  cancel:()=>ipcRenderer.invoke('gpu-export:cancel'),disable:()=>ipcRenderer.invoke('gpu-export:disable'),
++ });
++}
+ import type { SharedTextureImported } from 'electron'
+ import { installMotifFrames } from './motifFrames'
+ import { MotifReadBarrier } from './motifReadBarrier'
+diff --git a/apps/desktop/src/renderer/app/exportRunner.ts b/apps/desktop/src/renderer/app/exportRunner.ts
+index aa64229..36bc543 100644
+--- a/apps/desktop/src/renderer/app/exportRunner.ts
++++ b/apps/desktop/src/renderer/app/exportRunner.ts
+@@ -4,6 +4,8 @@ import { convertFileSrc } from "@/bridge/ipc";
+ import { getAudioEffect } from "../../shared/audioEffects/catalog";
+ import { isResourceCapacityError } from "../../shared/resource-policy";
+ import { approxFrameDurUs } from "../frames";
++import {gpuExportActive,disableGpuExport} from '../render/worker/linuxGpuExport';
++import {withGpuExportFallback} from '../render/gpuExportFallback';
+ import {
+   ensureExportAudioConform,
+   ensureExportAudioFx,
+@@ -19,6 +21,7 @@ import {
+   type MediaJobEvent,
+   type MediaSummary,
+   type ProjectSummary,
++  type VideoSinkStartArgs,
+ } from "../ipc";
+ import { type ExportState } from "../panels/ExportPanel";
+ import { type ProxyState } from "../panels/mediaReadiness";
+@@ -587,9 +590,11 @@ export function createExportRunner(deps: {
+       // Native-sink path: start the native-encode video sink (ffmpeg, frames
+       // streamed over IPC) before the Worker starts. On the WebCodecs path the
+       // existing fMP4 streaming path is used.
++      let sinkStartArgs:VideoSinkStartArgs|null=null;
+       if (nativeSink && sinkTarget) {
+         try {
+-          await exportVideoSinkStart({
++          sinkStartArgs={
++            gpuNativeSize:dims.width===comp.width&&dims.height===comp.height&&compositeBitDepth(settings)===8,
+             finalizationToken: finalizationReservation.token,
+             width: dims.width,
+             height: dims.height,
+@@ -619,7 +624,8 @@ export function createExportRunner(deps: {
+             ...(settings.codec === "prores" ? { profile: settings.proresProfile } : {}),
+             ...(settings.codec === "dnxhr" ? { profile: settings.dnxhrProfile } : {}),
+             outputPath: tempVideoPath,
+-          });
++          };
++          await exportVideoSinkStart(sinkStartArgs);
+         } catch (e) {
+           const msg = e instanceof Error ? e.message : String(e);
+           console.error("[weftcut/pixi] video sink start failed:", e);
+@@ -730,8 +736,8 @@ export function createExportRunner(deps: {
+ 
+       onProgress(0, 1);
+       let result;
+-      try {
+-        result = await previewRef.current?.runPixiExport({
++      const renderOnce=async()=>{
++        const value = await previewRef.current?.runPixiExport({
+           finalizationToken: finalizationReservation.token,
+           resourcePlan: finalizationReservation.plan,
+           onProgress,
+@@ -746,6 +752,17 @@ export function createExportRunner(deps: {
+           ...(nativeSink && sinkTarget ? { nativeSinkPixFmt: sinkTarget.pixFmt } : {}),
+           ...(decodeRouting ? { decodeRouting } : {}),
+         });
++        if(value&&nativeSink){setExportState({kind:'finalizing',step:'sink'});await exportVideoSinkFinish();}
++        return value;
++      };
++      try {
++        result=await withGpuExportFallback(renderOnce,async()=>{
++          console.warn('[gpu-final-export] transport failed; restarting the same range through the previous native sink');
++          await disableGpuExport();
++          if(exportController.signal.aborted)throw new ExportCancelled();
++          if(!sinkStartArgs)throw Error('Native sink parameters unavailable');
++          onProgress(0,1);await exportVideoSinkStart({...sinkStartArgs,gpuNativeSize:false});
++        },gpuExportActive,()=>exportController.signal.aborted);
+       } catch (e) {
+         const msg = e instanceof Error ? e.message : String(e);
+         if (nativeSink) await exportVideoSinkCancel().catch(() => { });
+@@ -766,21 +783,6 @@ export function createExportRunner(deps: {
+         return;
+       }
+ 
+-      // On the native-sink path, signal the sink that all frames have been
+-      // sent. The sink flushes its encoder + muxer and writes the final
+-      // tempVideoPath. Must run BEFORE mux.
+-      if (nativeSink) {
+-        setExportState({ kind: "finalizing", step: "sink" });
+-        try {
+-          await exportVideoSinkFinish();
+-        } catch (e) {
+-          const msg = e instanceof Error ? e.message : String(e);
+-          console.error("[weftcut/pixi] sink finish failed:", e);
+-          setExportState({ kind: "error", detail: `Finalize failed: ${msg}` });
+-          return;
+-        }
+-      }
+-
+       const durationUs = Math.round((result.totalFrames * 1_000_000 * result.fpsDen) / result.fpsNum);
+       retained = true;
+       await finalize(() => muxExport(tempVideoPath, tempAudioPath, path, { token: finalizationReservation.token, audioRequired: audioProduced, stagingOutput: true }), cleanup, durationUs);
+diff --git a/apps/desktop/src/renderer/ipc/index.ts b/apps/desktop/src/renderer/ipc/index.ts
+index 852d29c..1221414 100644
+--- a/apps/desktop/src/renderer/ipc/index.ts
++++ b/apps/desktop/src/renderer/ipc/index.ts
+@@ -1,6 +1,7 @@
+ import { parseManifestIsland } from '../../shared/motifs/catalog';
+ import type { TimingFields } from '../../shared/timeMapping'
+ import type { CropRect } from '../../shared/crop';
++import {startGpuExport,finishGpuExport,cancelGpuExport,gpuExportActive} from '../render/worker/linuxGpuExport';
+ // Renderer-side IPC surface: typed `invoke` wrappers plus the wire shapes the
+ // renderer reads back. It owns no state and no persistence.
+ //
+@@ -3423,11 +3424,15 @@ export interface VideoSinkStartArgs {
+   preset?: string;
+   /// Intermediate-codec profile: prores proxy|lt|422|hq, dnxhr lb|sq|hq.
+   profile?: string;
++  /// Final GPU sink currently preserves native-size SDR8 only.
++  gpuNativeSize?: boolean;
+ }
+ 
+ /// Start a native-encode video sink.
+-export function exportVideoSinkStart(args: VideoSinkStartArgs): Promise<void> {
+-  return invoke("export_video_sink_start", { args });
++export async function exportVideoSinkStart(args: VideoSinkStartArgs): Promise<void> {
++  const {gpuNativeSize,...nativeArgs}=args;
++  if(gpuNativeSize&&await startGpuExport(nativeArgs))return;
++  return invoke("export_video_sink_start", { args:nativeArgs });
+ }
+ 
+ /// Finalize the video sink after all frames have been sent. Returns byte
+@@ -3437,12 +3442,14 @@ export function exportVideoSinkFinish(): Promise<{
+   frames: number;
+   elapsedMs: number;
+ }> {
++  if(gpuExportActive())return finishGpuExport();
+   return invoke("export_video_sink_finish");
+ }
+ 
+ /// Abort a running sink (error / cancel paths). Safe to call even if the
+ /// sink has already finished — the backend no-ops on a dead sink.
+ export function exportVideoSinkCancel(): Promise<void> {
++  if(gpuExportActive())return cancelGpuExport();
+   return invoke("export_video_sink_cancel");
+ }
+ 
+diff --git a/apps/desktop/src/renderer/render/gpuExportFallback.test.ts b/apps/desktop/src/renderer/render/gpuExportFallback.test.ts
+new file mode 100644
+index 0000000..65fe252
+--- /dev/null
++++ b/apps/desktop/src/renderer/render/gpuExportFallback.test.ts
+@@ -0,0 +1,81 @@
++import { describe, it, expect, vi } from "vitest";
++import { withGpuExportFallback } from "./gpuExportFallback";
++import { GPU_EXPORT_FAILURE } from "../../shared/linuxGpuExport";
++describe("GPU sink fallback", () => {
++  it("keeps successful export", async () => {
++    const restart = vi.fn();
++    expect(
++      await withGpuExportFallback(
++        async () => 42,
++        restart,
++        () => true,
++        () => false,
++      ),
++    ).toBe(42);
++    expect(restart).not.toHaveBeenCalled();
++  });
++  it("restarts once from frame zero after a transport failure", async () => {
++    const run = vi
++        .fn()
++        .mockRejectedValueOnce(Error(GPU_EXPORT_FAILURE))
++        .mockResolvedValue(42),
++      restart = vi.fn();
++    expect(
++      await withGpuExportFallback(
++        run,
++        restart,
++        () => true,
++        () => false,
++      ),
++    ).toBe(42);
++    expect(run).toHaveBeenCalledTimes(2);
++    expect(restart).toHaveBeenCalledTimes(1);
++  });
++  it("does not retry a failing fallback again", async () => {
++    const run = vi.fn().mockRejectedValue(Error(GPU_EXPORT_FAILURE)),
++      restart = vi.fn();
++    await expect(
++      withGpuExportFallback(
++        run,
++        restart,
++        () => true,
++        () => false,
++      ),
++    ).rejects.toThrow(GPU_EXPORT_FAILURE);
++    expect(run).toHaveBeenCalledTimes(2);
++    expect(restart).toHaveBeenCalledTimes(1);
++  });
++  it("does not confuse a source filename with a transport error tag", async () => {
++    const restart = vi.fn();
++    await expect(
++      withGpuExportFallback(
++        async () => {
++          throw Error("Missing media: " + GPU_EXPORT_FAILURE + ".mp4");
++        },
++        restart,
++        () => true,
++        () => false,
++      ),
++    ).rejects.toThrow("Missing media");
++    expect(restart).not.toHaveBeenCalled();
++  });
++  it.each([
++    { active: true, cancelled: true, error: GPU_EXPORT_FAILURE },
++    { active: false, cancelled: false, error: GPU_EXPORT_FAILURE },
++    { active: true, cancelled: false, error: "source media missing" },
++    { active: true, cancelled: false, error: "resource-capacity-exceeded" },
++  ])("does not hide cancellation/content/resource errors %j", async (s) => {
++    const restart = vi.fn();
++    await expect(
++      withGpuExportFallback(
++        async () => {
++          throw Error(s.error);
++        },
++        restart,
++        () => s.active,
++        () => s.cancelled,
++      ),
++    ).rejects.toThrow(s.error);
++    expect(restart).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/desktop/src/renderer/render/gpuExportFallback.ts b/apps/desktop/src/renderer/render/gpuExportFallback.ts
+new file mode 100644
+index 0000000..46b8d73
+--- /dev/null
++++ b/apps/desktop/src/renderer/render/gpuExportFallback.ts
+@@ -0,0 +1,20 @@
++import { GPU_EXPORT_FAILURE } from "../../shared/linuxGpuExport";
++/** Restart from frame zero, never concatenate incompatible encoded streams. */
++export async function withGpuExportFallback<T>(
++  run: () => Promise<T>,
++  restart: () => Promise<void>,
++  active: () => boolean,
++  cancelled: () => boolean,
++): Promise<T> {
++  try {
++    return await run();
++  } catch (error) {
++    const message = String(error).replace(/^(?:Error:\s*)+/, "");
++    const transport =
++      message === GPU_EXPORT_FAILURE ||
++      message.startsWith(GPU_EXPORT_FAILURE + ":");
++    if (cancelled() || !active() || !transport) throw error;
++    await restart();
++    return run(); // exactly one retry; a second error is visible
++  }
++}
+diff --git a/apps/desktop/src/renderer/render/worker/exportWorker.ts b/apps/desktop/src/renderer/render/worker/exportWorker.ts
+index 4b607d2..c2e95ba 100644
+--- a/apps/desktop/src/renderer/render/worker/exportWorker.ts
++++ b/apps/desktop/src/renderer/render/worker/exportWorker.ts
+@@ -55,6 +55,7 @@ const motifInbox = new MotifFrameInbox();
+ /// Resolver for the in-flight `chunk` write. WritableStream serializes writes,
+ /// so at most one is pending at a time.
+ let pendingChunkAck: (() => void) | null = null;
++let gpuFrameAck:{resolve():void;reject(error:Error):void}|null=null;
+ 
+ /// Post one sequential output slice to the main thread and resolve once it
+ /// acks (after appending to disk). mediabunny's WritableStream awaits this, so
+@@ -82,6 +83,7 @@ installWorkerResourceClient(async (memoryMiB, threads) => {
+ });
+ self.onmessage = (e: MessageEvent<ExportRequest>) => {
+   const req = e.data;
++  if(req.type==='gpu-final-result'){const ack=gpuFrameAck;gpuFrameAck=null;if(req.error)ack?.reject(Error(req.error));else ack?.resolve();return;}
+   if (req.type === 'resource:result') {
+     const pending = resourceWaiters.get(req.id); resourceWaiters.delete(req.id);
+     if (req.error) pending?.reject(new Error(req.error)); else pending?.resolve();
+@@ -297,7 +299,7 @@ async function runExport(req: Extract<ExportRequest, { type: "start" }>) {
+   // event (desired; don't catch it here).
+   let compositeRT: RenderTexture | null = null;
+   let pack: PackYuv420p10 | PackYuvPlanar | null = null;
+-  if (nativeSink) {
++  if (nativeSink&&!req.gpuFinalExport) {
+     compositeRT = RenderTexture.create({
+       width: req.project.width,
+       height: req.project.height,
+@@ -513,7 +515,13 @@ async function runExport(req: Extract<ExportRequest, { type: "start" }>) {
+           compositor.setAnchorTime(tUs);
+           compositor.compositeFrame(tUs);
+ 
+-          if (nativeSink) {
++          if(req.gpuFinalExport){
++            if(tenBit||needsScale)throw Error('GPU export accepts native-size SDR8 only');
++            app.render();compositeMs+=performance.now()-compT0;
++            const capT0=performance.now();const bitmap=req.canvas.transferToImageBitmap();
++            captureMs+=performance.now()-capT0;
++            const encT0=performance.now();await new Promise<void>((resolve,reject)=>{gpuFrameAck={resolve,reject};post({type:'gpu-final-frame',index:i,bitmap},[bitmap]);});encodeMs+=performance.now()-encT0;
++          } else if (nativeSink) {
+             // Native-sink path: render into the composite RenderTexture (rgba16float
+             // for the 10-bit precision lane, rgba8unorm otherwise), pack to `sinkFmt`,
+             // then stream to the Rust sink over the chunk/ack IPC channel.
+diff --git a/apps/desktop/src/renderer/render/worker/linuxGpuExport.ts b/apps/desktop/src/renderer/render/worker/linuxGpuExport.ts
+new file mode 100644
+index 0000000..2db1ebf
+--- /dev/null
++++ b/apps/desktop/src/renderer/render/worker/linuxGpuExport.ts
+@@ -0,0 +1,131 @@
++import { GPU_EXPORT_FAILURE } from "../../../shared/linuxGpuExport";
++interface LowLevel {
++  start(args: unknown): Promise<{ token: string } | null>;
++  finish(): Promise<{ bytes: number; frames: number; elapsedMs: number }>;
++  cancel(): Promise<void>;
++  disable(): Promise<void>;
++}
++declare global {
++  interface Window {
++    linuxGpuExport?: LowLevel;
++  }
++}
++let active: { port: MessagePort; token: string; next: number } | null = null;
++export function gpuExportActive() {
++  return active !== null;
++}
++export async function startGpuExport(args: unknown): Promise<boolean> {
++  const api = window.linuxGpuExport;
++  if (!api) return false;
++  let listener: (event: MessageEvent) => void;
++  let timer: ReturnType<typeof setTimeout> | undefined,
++    received: MessagePort | undefined;
++  const pending = new Promise<MessageEvent>((resolve) => {
++    listener = (event) => {
++      if (
++        event.source === window &&
++        event.data?.type === "gpu-export-port" &&
++        event.ports.length === 1
++      ) {
++        received = event.ports[0];
++        resolve(event);
++      }
++    };
++    window.addEventListener("message", listener);
++  });
++  try {
++    const descriptor = await api.start(args);
++    if (!descriptor) return false;
++    const event = await Promise.race([
++      pending,
++      new Promise<never>((_, reject) => {
++        timer = setTimeout(() => reject(Error("GPU frame port timeout")), 5000);
++      }),
++    ]);
++    if (event.data.token !== descriptor.token)
++      throw Error("GPU port token mismatch");
++    const port = event.ports[0]!;
++    port.start();
++    active = { port, token: descriptor.token, next: 0 };
++    received = undefined;
++    return true;
++  } catch (error) {
++    if (String(error).includes("resource-capacity-exceeded")) throw error;
++    console.warn("[gpu-final-export] old sink retained", error);
++    await api.disable().catch(() => {});
++    return false;
++  } finally {
++    clearTimeout(timer);
++    window.removeEventListener("message", listener!);
++    received?.close();
++  }
++}
++export async function sendGpuExportFrame(index: number, bitmap: ImageBitmap) {
++  const state = active;
++  if (!state || index !== state.next) {
++    bitmap.close();
++    throw Error(GPU_EXPORT_FAILURE + ": frame sequence mismatch");
++  }
++  try {
++    await new Promise<void>((resolve, reject) => {
++      const clean = () => {
++        clearTimeout(timer);
++        state.port.removeEventListener("message", listener);
++      };
++      const listener = (event: MessageEvent) => {
++        if (
++          event.data?.token !== state.token ||
++          event.data?.type !== "gpu-frame-ack" ||
++          event.data.index !== index
++        )
++          return;
++        clean();
++        event.data.error ? reject(Error(event.data.error)) : resolve();
++      };
++      const timer = setTimeout(() => {
++        clean();
++        reject(Error("GPU frame timeout"));
++      }, 15000);
++      state.port.addEventListener("message", listener);
++      try {
++        state.port.postMessage(
++          { type: "gpu-final-frame", token: state.token, index, bitmap },
++          [bitmap],
++        );
++      } catch (error) {
++        clean();
++        bitmap.close();
++        reject(error);
++      }
++    });
++    state.next++;
++  } catch (error) {
++    throw Error(GPU_EXPORT_FAILURE + ": " + String(error));
++  }
++}
++export async function finishGpuExport() {
++  try {
++    const result = await window.linuxGpuExport!.finish();
++    active?.port.close();
++    active = null;
++    return result;
++  } catch (error) {
++    throw Error(GPU_EXPORT_FAILURE + ": " + String(error));
++  }
++}
++export async function cancelGpuExport() {
++  try {
++    await window.linuxGpuExport!.cancel();
++  } finally {
++    active?.port.close();
++    active = null;
++  }
++}
++export async function disableGpuExport() {
++  try {
++    await window.linuxGpuExport?.disable();
++  } finally {
++    active?.port.close();
++    active = null;
++  }
++}
+diff --git a/apps/desktop/src/renderer/render/worker/protocol.ts b/apps/desktop/src/renderer/render/worker/protocol.ts
+index 726a338..47509ce 100644
+--- a/apps/desktop/src/renderer/render/worker/protocol.ts
++++ b/apps/desktop/src/renderer/render/worker/protocol.ts
+@@ -96,9 +96,11 @@ export interface NativeDecodeOpenInfo {
+ }
+ 
+ export type ExportRequest =
++  | {type:'gpu-final-result';error?:string}
+   | { type: 'resource:result'; id: string; error?: string }
+   | {
+       type: "start";
++      gpuFinalExport?:boolean;
+       project: ExportProjectSnapshot;
+       /// Time range to encode in microseconds (inclusive of
+       /// `startUs`, exclusive of `endUs`).
+@@ -220,6 +222,7 @@ export interface ExportPerf {
+ }
+ 
+ export type ExportEvent =
++  | {type:'gpu-final-frame';index:number;bitmap:ImageBitmap}
+   | { type: 'resource:acquire'; id: string; memoryMiB: number; threads: number }
+   | { type: 'resource:release'; id: string }
+   | { type: "ready" }
+diff --git a/apps/desktop/src/renderer/render/worker/runExport.ts b/apps/desktop/src/renderer/render/worker/runExport.ts
+index ae8661a..cc376e1 100644
+--- a/apps/desktop/src/renderer/render/worker/runExport.ts
++++ b/apps/desktop/src/renderer/render/worker/runExport.ts
+@@ -10,6 +10,7 @@
+ // this resolves.
+ 
+ import { convertFileSrc } from "@/bridge/ipc";
++import {gpuExportActive,sendGpuExportFrame} from './linuxGpuExport';
+ import { loadBundledFontBytes, resolveFontsForFamilies } from "../fonts/registry";
+ 
+ import type { MediaSummary, ProjectSummary } from "../../ipc";
+@@ -258,6 +259,7 @@ export async function runExport(init: RunExportInit): Promise<RunExportResult> {
+   // 6. Build the start request; post once the ready latch resolves.
+   const startReq: Extract<ExportRequest, { type: "start" }> = {
+     type: "start",
++    ...(gpuExportActive()?{gpuFinalExport:true}:{}),
+     project: snapshot,
+     startUs,
+     endUs,
+@@ -424,7 +426,9 @@ export async function runExport(init: RunExportInit): Promise<RunExportResult> {
+     worker.onmessage = (e: MessageEvent<ExportEvent>) => {
+       const ev = e.data;
+       if (disposed) return;
+-      if (ev.type === "motif:consumed") {
++      if(ev.type==='gpu-final-frame'){
++        void sendGpuExportFrame(ev.index,ev.bitmap).then(()=>{if(!disposed)worker.postMessage({type:'gpu-final-result'} satisfies ExportRequest);},error=>{if(!disposed)worker.postMessage({type:'gpu-final-result',error:String(error)} satisfies ExportRequest);});
++      } else if (ev.type === "motif:consumed") {
+         motifProducer?.release(ev.index);
+       } else if (ev.type === "progress") {
+         framesEncoded = ev.framesEncoded;
+diff --git a/apps/desktop/src/shared/linuxGpuExport.test.ts b/apps/desktop/src/shared/linuxGpuExport.test.ts
+new file mode 100644
+index 0000000..86bfe59
+--- /dev/null
++++ b/apps/desktop/src/shared/linuxGpuExport.test.ts
+@@ -0,0 +1,89 @@
++import { describe, it, expect } from "vitest";
++import {
++  amdRenderDevice,
++  gpuExportEligible,
++  type GpuExportArgs,
++} from "./linuxGpuExport";
++const args: GpuExportArgs = {
++  width: 1920,
++  height: 1080,
++  fpsNum: 30,
++  fpsDen: 1,
++  codec: "h264",
++  pixFmt: "yuv420p",
++  bitrate: 8000000,
++  cbr: false,
++  gop: 30,
++  software: false,
++  outputPath: "/tmp/test.mp4",
++};
++describe("final GPU export qualification", () => {
++  it("accepts bounded native SDR delivery codecs", () => {
++    expect(gpuExportEligible(args)).toBe(true);
++    expect(gpuExportEligible({ ...args, codec: "hevc" })).toBe(true);
++  });
++  it.each([
++    { software: true },
++    { pixFmt: "yuv420p10le" },
++    { codec: "av1" },
++    { codec: "prores" },
++    { cbr: true },
++    { crf: 20 },
++    { maxBitrate: 9000000 },
++    { bufferSize: 20000000 },
++    { width: 1919 },
++    { height: 4320 },
++    { fpsDen: 0 },
++    { bitrate: NaN },
++    { fpsNum: 1000 },
++  ])("preserves previous encoder intent %j", (change) => {
++    expect(gpuExportEligible({ ...args, ...change })).toBe(false);
++  });
++  it("requires the render node and active renderer both to be AMD", () => {
++    expect(
++      amdRenderDevice(
++        "/dev/dri/renderD129",
++        "0x1002\n",
++        [0x1002],
++        "AMD Radeon RX 5700 XT",
++      ),
++    ).toBe(true);
++    expect(amdRenderDevice("/dev/dri/renderD129", "0x1002\n", [0x1002])).toBe(
++      false,
++    );
++    for (const [node, vendor, active] of [
++      ["/dev/dri/renderD128", "0x10de", [0x10de]],
++      ["/dev/dri/renderD128", "0x1002", [0x10de]],
++      ["/dev/dri/renderD128", "0x1002", []],
++      ["/dev/dri/renderD128", "0x1002", [0x1002, 0x10de]],
++      ["/tmp/device", "0x1002", [0x1002]],
++    ] as const)
++      expect(amdRenderDevice(node, vendor, [...active])).toBe(false);
++  });
++  it("accepts a proven AMD ANGLE renderer when Wayland reports PCI vendor zero", () => {
++    expect(
++      amdRenderDevice(
++        "/dev/dri/renderD128",
++        "0x1002",
++        [0],
++        "ANGLE (AMD, Radeon RX 5700 XT)",
++      ),
++    ).toBe(true);
++    expect(
++      amdRenderDevice(
++        "/dev/dri/renderD128",
++        "0x1002",
++        [0],
++        "llvmpipe (AMD software)",
++      ),
++    ).toBe(false);
++    expect(
++      amdRenderDevice(
++        "/dev/dri/renderD128",
++        "0x1002",
++        [0],
++        "ANGLE (NVIDIA, RTX 4090)",
++      ),
++    ).toBe(false);
++  });
++});
+diff --git a/apps/desktop/src/shared/linuxGpuExport.ts b/apps/desktop/src/shared/linuxGpuExport.ts
+new file mode 100644
+index 0000000..91d8527
+--- /dev/null
++++ b/apps/desktop/src/shared/linuxGpuExport.ts
+@@ -0,0 +1,53 @@
++/** Narrow qualification: never reinterpret software, 10-bit, CRF or VBV intent. */
++export interface GpuExportArgs {
++  width: number;
++  height: number;
++  fpsNum: number;
++  fpsDen: number;
++  codec: string;
++  pixFmt: string;
++  bitrate: number;
++  cbr: boolean;
++  gop: number;
++  software: boolean;
++  outputPath: string;
++  finalizationToken?: string;
++  crf?: number;
++  maxBitrate?: number;
++  bufferSize?: number;
++}
++export function gpuExportEligible(args: GpuExportArgs): boolean {
++  return (
++    ["h264", "hevc"].includes(args.codec) &&
++    args.pixFmt === "yuv420p" &&
++    !args.software &&
++    !args.cbr &&
++    args.crf == null &&
++    args.maxBitrate == null &&
++    args.bufferSize == null &&
++    [args.width, args.height].every(
++      (n) => Number.isSafeInteger(n) && n >= 16 && n <= 4096 && n % 2 === 0,
++    ) &&
++    [args.fpsNum, args.fpsDen, args.bitrate, args.gop].every(
++      (n) => Number.isSafeInteger(n) && n > 0,
++    ) &&
++    args.fpsNum / args.fpsDen <= 120
++  );
++}
++export function amdRenderDevice(
++  device: string,
++  vendor: string,
++  activeVendors: number[],
++  renderer = "",
++): boolean {
++  const hardwareAmd =
++    /\b(?:AMD|ATI|Radeon)\b/i.test(renderer) &&
++    !/swiftshader|llvmpipe|softpipe|software/i.test(renderer);
++  return (
++    /^\/dev\/dri\/renderD\d+$/.test(device) &&
++    vendor.trim().toLowerCase() === "0x1002" &&
++    hardwareAmd &&
++    activeVendors.every((id) => id === 0 || id === 0x1002)
++  );
++}
++export const GPU_EXPORT_FAILURE = "GPU_FINAL_EXPORT_FAILED";
+diff --git a/docs/adr/0155-linux-amd-final-compositor-vaapi-sink.md b/docs/adr/0155-linux-amd-final-compositor-vaapi-sink.md
+new file mode 100644
+index 0000000..6fa55cc
+--- /dev/null
++++ b/docs/adr/0155-linux-amd-final-compositor-vaapi-sink.md
+@@ -0,0 +1,62 @@
++---
++status: accepted
++---
++
++# Linux AMD final-compositor VA-API sink
++
++The native encoder may consume the final compositor through an independent
++ImageBitmap → offscreen shared texture → DMA-BUF → VA-API VPP/encoder path.
++This is final-frame encoding, not the separate Motif delivery probe (0148).
++The editor UI is never captured. The source surface is retained until VPP's
++copy completes; the encoder owns an independent bounded NV12 pool. Driver
++frame work runs off the Electron main thread. Only the initial surface fence
++and the isolated qualification test read CPU pixels.
++
++## Selection and fallback
++
++Only Linux with a proven hardware AMD WebGL renderer and an AMD DRM render node
++qualifies. Wayland may report PCI vendor 0; the actual WebGL renderer string,
++not the existence of a GPU alone, supplies the missing evidence. Software GL,
++NVIDIA, Intel, Windows and macOS retain the previous path. Device choice respects
++`WEFTCUT_VAAPI_DEVICE`. Upstream selection is experimental and opt-in:
++`WEFTCUT_GPU_FINAL_EXPORT=1` enables qualification. With no opt-in the established
++sink is unchanged, even on an AMD device. The custom application's earlier
++automatic selection is not proposed as the upstream default.
++
++Initial support is native-size SDR 8-bit H.264/HEVC, uncapped VBR. Scaling,
++10-bit, AV1, intermediates, software/CRF and explicit VBV/CBR retain the old
++encoder without reinterpreting any setting. The optional addon uses the existing
++LGPL shared runtime and is packaged beside native-decode. A missing addon is a
++supported fallback.
++
++Before the first eligible export, an isolated test at the requested size and
++codec encodes three changing frames, including text, gradients and RGB patches.
++Software decoding compares every RGB pixel against lossless references; all
++three frames must exist and each RGB RMSE must be ≤5/255. Qualification is local,
++session-only, cached per device/size/codec/fps/bitrate/GOP, and invalidated on GPU replacement.
++The native resource authority owns test/export memory and thread admission.
++The parent native-export plan keeps its CPU-phase reservation until finalization;
++the GPU child borrows only memory. Child release deliberately does not replenish
++plan threads, so consuming one in a probe would break later old-sink fallback.
++
++Failed qualification retains the old sink. A transport/encoder failure disables
++the path and retries the immutable range exactly once from frame zero through
++the previous native sink. Encoded bitstreams are never spliced mid-file.
++Cancellation, missing media and resource refusal are not transport fallbacks.
++Only the completed output is published through the existing finalization flow.
++UI telemetry identifies the actual VA-API encoder; unknown utilization stays
++unknown rather than inventing a percentage.
++
++## Evidence
++
++RX 5700 XT, Linux/Wayland, ANGLE/OpenGL, 1080p30: both exports of a 120-second
++multilayer section completed with 3600 frames and AAC stereo. Full-frame CPU
++comparison of the decoded files found no PTS mismatch, YUV PSNR 49.23 dB,
++non-overlapping 8×8 luma block SSIM 0.99658, and mean Y/U/V differences under
++0.56 code values. Contact sheets and the largest-difference transition were
++visually inspected without a material quality loss. This is comparison against
++the old encoded output, not a lossless source-quality score or a universal claim.
++
++Wall times were 1131.030 s and 866.124 s. The first run overlapped brief diagnostic
++work, so the approximately 23% reduction is exploratory, not a precise guaranteed
++speedup. Most remaining time was Motif source preparation, not native encoding.
