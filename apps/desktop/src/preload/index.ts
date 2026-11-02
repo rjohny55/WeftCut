@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, sharedTexture, webUtils } from 'electron'
+import { forwardPreviewSwFrame } from './previewSwFrames'
 import type { SharedTextureImported } from 'electron'
 import { installMotifFrames } from './motifFrames'
 import { MotifReadBarrier } from './motifReadBarrier'
@@ -285,8 +286,8 @@ const api: WeftcutApi = {
     close(args: { streamId: string }): void {
       ipcRenderer.send('previewSw:close', args)
     },
-    onFrame(cb: (f: PreviewSwFrameMsg) => void): () => void {
-      const h = (_e: unknown, f: PreviewSwFrameMsg) => cb(f)
+    onFrame(cb: (f: PreviewSwFrameMsg) => void, streamId?: string): () => void {
+      const h = (_e: unknown, f: PreviewSwFrameMsg) => forwardPreviewSwFrame(f, streamId, cb)
       ipcRenderer.on('previewSw:frame', h)
       return () => { ipcRenderer.removeListener('previewSw:frame', h) }
     },
