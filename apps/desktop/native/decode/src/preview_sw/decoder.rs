@@ -701,6 +701,18 @@ impl SwVideoStream {
     /// Decode the next frame, packed as owned bytes in the stream's target
     /// format. Returns `Ok(None)` at end of stream.
     pub fn next_frame(&mut self) -> Result<Option<SwFrame>, String> {
+        self.next_frame_for_preview(i64::MIN)
+    }
+
+    /// Preview's GOP catch-up still advances one decoded frame per call, so
+    /// the session can observe shutdown/generation/deadline between frames.
+    /// Reference-only frames carry timestamps but no pixel buffer: they are
+    /// discarded by serve_request before credit acquisition or delivery. Export
+    /// and seek probes keep using next_frame(), which always packs pixels.
+    pub fn next_frame_for_preview(
+        &mut self,
+        discard_before_us: i64,
+    ) -> Result<Option<SwFrame>, String> {
         let map = |e: ffmpeg_next::Error| e.to_string();
         loop {
             // Drain any already-decoded frame first.
@@ -732,6 +744,17 @@ impl SwVideoStream {
                 // copy-back, swscale, output packing, and the IPC byte buffer.
                 if !self.output_cadence.should_ship() {
                     continue;
+                }
+                if pts_us.saturating_add(dur_us.max(1)) <= discard_before_us {
+                    return Ok(Some(SwFrame {
+                        data: Vec::new(),
+                        format: self.out_format,
+                        width: self.out_width,
+                        height: self.out_height,
+                        pts_us,
+                        dur_us,
+                        color: self.color.clone(),
+                    }));
                 }
                 // A hardware lane decodes to a GPU surface; copy it back to system
                 // memory before packing so the bytes feed the same transport as
@@ -1352,6 +1375,33 @@ mod tests {
         let s = SwVideoStream::open(p).expect("open");
         assert_eq!((s.out_width, s.out_height), (s.width, s.height));
         assert_eq!((s.out_width, s.out_height), (320, 240));
+    }
+
+    #[test]
+    fn preview_reference_discard_keeps_target_pixels_identical() {
+        let p = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/tiny_mpeg2.mpg");
+        let mut reference = SwVideoStream::open(p).unwrap();
+        let mut preview = SwVideoStream::open(p).unwrap();
+        let target = 800_000;
+        let mut skipped = 0;
+        loop {
+            let expected = reference.next_frame().unwrap().unwrap();
+            let got = preview.next_frame_for_preview(target).unwrap().unwrap();
+            assert_eq!((got.pts_us, got.dur_us), (expected.pts_us, expected.dur_us));
+            if got.pts_us.saturating_add(got.dur_us.max(1)) <= target {
+                assert!(got.data.is_empty());
+                skipped += 1;
+            } else {
+                assert_eq!(got.data, expected.data);
+                break;
+            }
+        }
+        assert!(skipped > 0);
+        // Returning to the ordinary API must never inherit the discard policy.
+        assert_eq!(
+            preview.next_frame().unwrap().unwrap().data,
+            reference.next_frame().unwrap().unwrap().data
+        );
     }
 
     #[test]
