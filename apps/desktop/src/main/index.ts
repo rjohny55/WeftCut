@@ -1,3 +1,7 @@
+import { runExportGpuProbe } from './motif/exportGpuProbe'
+import { copyDirectMotifTexture } from './motif/directGpuTransport'
+import { MotifGpuSelector } from './motif/gpuSelector'
+import { capturePreviewMotifTexture, resetPreviewCaptureHosts } from './motif/capture'
 import { ExportJobs, exportPathExists, suggestExportName } from "./exportJobs";
 import path from 'node:path'
 import { diagnosticOwner, recordDiagnostic, recordProjectDiagnostic } from './diagnostics'
@@ -856,6 +860,7 @@ app.whenReady().then(async () => {
   const napiFacadeWithCache = {
     ...napiFacade,
     commitWorkspace: async (p: string) => {
+      resetPreviewCaptureHosts()
       const previous = workspaceEvents.current()
       workspaceEvents.beginTransition()
       motifReader?.workspaceChanged()
@@ -881,6 +886,7 @@ app.whenReady().then(async () => {
       deferredLog.flush(emitLogEntry)
     },
     endWorkspace: async () => {
+      resetPreviewCaptureHosts()
       workspaceEvents.beginTransition()
       motifReader?.workspaceChanged()
       motifBakes?.reset()
@@ -1405,7 +1411,15 @@ app.whenReady().then(async () => {
   const motifGpu = process.platform === 'win32' && motifPoolClass
     ? new MotifGpuTransport((w, h, bgra) => new motifPoolClass(w, h, 1, bgra)) : null
   const encoderClass = (require_('@weftcut/core') as { MotifTextureEncoder?: new () => TextureEncoder }).MotifTextureEncoder
+  const previewGpuSelector = new MotifGpuSelector<{ owner: Electron.WebContents }>(context => {
+    if (!context) throw new Error('GPU preview probe owner missing')
+    return runExportGpuProbe(context.owner)
+  }, process.platform === 'linux' && process.env.WEFTCUT_PREVIEW_MOTIF_GPU === '1' && process.env.WEFTCUT_MOTIF_CAPTURE !== 'png')
   const motifCapture = new MotifCaptureService({
+    ...(process.platform === 'linux' && process.env.WEFTCUT_PREVIEW_MOTIF_GPU === '1'
+      ? { previewTexture: capturePreviewMotifTexture, previewCopy: copyDirectMotifTexture,
+        previewReady: (owner: Electron.WebContents) => previewGpuSelector.ready({ owner }),
+        previewFailed: () => previewGpuSelector.failed() } : {}),
     store: motifFrames, texture: captureMotifTexture, png: captureMotifFrameB64,
     copy: motifGpu ? (owner, texture, parent) => motifGpu.copy(owner, texture, parent) : null,
     createEncoder: process.platform === 'win32' && encoderClass ? () => new encoderClass() : null,
@@ -1428,7 +1442,7 @@ app.whenReady().then(async () => {
   app.once('will-quit', () => motifCapture.dispose())
   // A restarted GPU process gives the offscreen capture host a new, unproven
   // compositor surface: its next shared-texture lease must fence again.
-  app.on('child-process-gone', (_event, details) => { if (details.type === 'GPU') invalidateCaptureSurface() })
+  app.on('child-process-gone', (_event, details) => { if (details.type === 'GPU') { invalidateCaptureSurface(); previewGpuSelector.reset(); motifCapture.resetPreviewGpu() } })
   const currentMotifStore = () => wsCache ? motifBakes!.store() : motifFrames
   motifReader = new MotifReaderService({
     fork: () => utilityProcess.fork(path.join(import.meta.dirname, 'motifReader.js'), [], {
@@ -1445,6 +1459,8 @@ app.whenReady().then(async () => {
   const reader = motifReader
   app.once('will-quit', () => reader.stop())
   const trackMotifConsumer = createMotifConsumers(owner => {
+    resetPreviewCaptureHosts()
+    previewGpuSelector.reset(); motifCapture.resetPreviewGpu()
     motifGpu?.close(owner)
     reader.retire(owner)
   })
@@ -1567,7 +1583,7 @@ app.whenReady().then(async () => {
       return motifBakes!.reconcile(plan)
     }
     if (channel === 'motif_bake_snapshot') return motifBakes!.snapshot()
-    if (channel === 'motif_capture_diagnostics') return captureDiagnostics(args?.reset === true)
+    if (channel === 'motif_capture_diagnostics') return { ...captureDiagnostics(args?.reset === true), preview_gpu_transport: previewGpuSelector.snapshot() }
     if (channel === 'motif_has_cached_frame') return currentMotifStore().has(args.hash, args.frame)
     if (channel === 'motif_write_cached_frame') return currentMotifStore().write(args.hash, args.frame, args.png)
     if (channel === 'agent_connections') return mcpHost.connectionSnapshot()

@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { UserMotifStore } from "./store";
+import { motifContentHash } from "./contentHash";
 import { composeMotifHtml, type Manifest } from "../../shared/motifs/catalog";
 
 let root: string;
@@ -15,6 +16,24 @@ function man(id: string, name: string, version: number): Manifest {
 const body = "<head></head><body><script>motif.define({setup(){}})</script></body>";
 
 describe("UserMotifStore drafts + publish", () => {
+  it('keeps a live page snapshot through idle eviction and releases it idempotently', () => {
+    const s = new UserMotifStore(root);
+    const revision = (id: string) => {
+      s.writeDraftPackage(id, composeMotifHtml(man(id, id, 1), body), [
+        { path: 'asset.bin', bytes: Buffer.from(id) },
+      ]);
+      s.installDraft(id, id);
+      const source = s.getMotif(id)!;
+      return motifContentHash(source.manifest, source.html, s.packageFiles(id));
+    };
+    const first = revision('first');
+    const release = s.retainPackage('first', first)!;
+    expect(s.pinnedPackageBytes('first', first)).toBeGreaterThan(5);
+    for (const id of ['second', 'third', 'fourth']) s.pinPackage(id, revision(id));
+    expect(s.readFile('first', `.revisions/${first}/asset.bin`)?.toString()).toBe('first');
+    release(); release();
+    expect(s.readFile('first', `.revisions/${first}/asset.bin`)).toBeNull();
+  });
   it("write_draft → list + get", () => {
     const s = new UserMotifStore(root);
     s.writeDraft("d1", composeMotifHtml(man("d1", "Draft One", 1), body));

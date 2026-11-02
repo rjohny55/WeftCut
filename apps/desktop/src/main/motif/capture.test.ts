@@ -7,7 +7,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 
 let opened = 0
+let destroyed = 0
+let backgroundThrottling: boolean | undefined
 let screenshotCalls = 0
+let lastScreenshotParams: unknown;
 /// The last `__motifRender(tSec, props, meta)` expression sent to the host —
 /// the meta.fps assertions parse the third argument out of it.
 let lastRenderExpr: string | null = null
@@ -40,8 +43,7 @@ let hangFrame = false
 let contentSize = { width: 32, height: 16 }
 /// The size the page is emulated at (Emulation.setDeviceMetricsOverride). A
 /// PNG readback while the window and the emulation disagree is BLANK: the
-/// macOS bitmap OSR host's empty first frame of a new document
-/// (docs/notes/electron-chromium-behavior.md).
+/// macOS bitmap OSR host's empty first frame of a new document (ADR 0142).
 let emulatedSize: { width: number; height: number } | null = null
 const BLANK = 'QkxBTks='
 
@@ -72,6 +74,7 @@ vi.mock('electron', () => {
         sendCommand: (method: string, params?: { expression?: string }) => {
           if (method === hungCommand) return new Promise(() => {})
           if (method === 'Page.captureScreenshot') {
+            lastScreenshotParams = params;
             committedSurface = renderedSurface
             screenshotCalls++
             shotOrder.push(currentLane()?.split('@')[0] ?? currentUrl)
@@ -115,8 +118,9 @@ vi.mock('electron', () => {
         },
       },
     })
-    constructor() {
+    constructor(options: { webPreferences?: { backgroundThrottling?: boolean } }) {
       opened++
+      backgroundThrottling = options.webPreferences?.backgroundThrottling
     }
     loadURL = async (url: string): Promise<void> => {
       currentUrl = url; committedSurface = -1
@@ -125,12 +129,12 @@ vi.mock('electron', () => {
     }
     // A new size is a new compositor surface too: its first paint is unproven.
     setContentSize = (width: number, height: number): void => { contentSize = { width, height }; committedSurface = -1 }
-    destroy = (): void => {}
+    destroy = (): void => { destroyed++ }
   }
   return { BrowserWindow: FakeBrowserWindow, shell: { openExternal: async () => {} } }
 })
 
-const { captureMotifFrameB64, captureMotifTexture, setTextureCaptureEnabled, setRuntimeSource, setMotifStore, shutdownCaptureHost, invalidateCaptureSurface, controlMotifCapture, captureDiagnostics, resetCaptureFailure } = await import('./capture')
+const { captureMotifFrameB64, captureMotifTexture, capturePreviewMotifTexture, resetPreviewCaptureHosts, setTextureCaptureEnabled, setRuntimeSource, setMotifStore, shutdownCaptureHost, invalidateCaptureSurface, controlMotifCapture, captureDiagnostics, resetCaptureFailure } = await import('./capture')
 type UserMotifStoreT = import('./store').UserMotifStore
 
 /// The third (`meta`) argument of the recorded `__motifRender(...)` call. The
@@ -173,6 +177,7 @@ describe('capture host shutdown', () => {
     setRuntimeSource('/* clock-takeover runtime */')
     await expect(captureMotifFrameB64(args)).resolves.toBe('UE5H')
     expect(opened).toBe(1)
+    expect(backgroundThrottling).toBe(false)
   })
 
   it('allows a 6s setup but bounds initialization and each frame independently', async () => {
@@ -411,6 +416,35 @@ describe('capture host shutdown', () => {
     }
   })
 
+  it('preview GPU fences independently while the global/export texture switch stays disabled', async () => {
+    setRuntimeSource('/* preview GPU independent runtime */')
+    setTextureCaptureEnabled(false)
+    try {
+      const read = (tSec: number) => capturePreviewMotifTexture({ ...args, motifId: 'preview-gpu', tSec },
+        async texture => (texture as unknown as { surface: number }).surface)
+      expect(await read(2)).toBe(2)
+      invalidateCaptureSurface()
+      expect(await read(3)).toBe(3)
+      await expect(captureMotifTexture(args, async () => 1)).rejects.toThrow('OSR unavailable')
+      resetPreviewCaptureHosts()
+      expect(await read(4)).toBe(4)
+    } finally { resetPreviewCaptureHosts() }
+  })
+
+  it('drains a default-one PNG fallback after an experimental GPU cache existed', async () => {
+    setTextureCaptureEnabled(false)
+    await capturePreviewMotifTexture({ ...args, motifId: 'fallback-drain', tSec: 1 }, async () => 1)
+    slowScreenshots = 1
+    const shots = screenshotCalls
+    const pending = captureMotifFrameB64({ ...args, motifId: 'fallback-drain', tSec: 2 })
+    await vi.waitFor(() => expect(screenshotCalls).toBeGreaterThan(shots))
+    const before = destroyed
+    resetPreviewCaptureHosts()
+    expect(destroyed).toBe(before)
+    await pending
+    expect(destroyed).toBe(before + 1)
+  })
+
   it('fences the first texture lease of a resized surface, not only a navigated one', async () => {
     setRuntimeSource('/* clock-takeover runtime */')
     setTextureCaptureEnabled(true)
@@ -501,6 +535,11 @@ describe('capture host shutdown', () => {
     expect(screenshotCalls - before).toBe(1)
     expect(currentUrl).toContain('session-running')
   })
+
+  it('uses fast lossless PNG transport rather than shrinking intermediates on the export hot path', async () => {
+    await captureMotifFrameB64({ ...args, motifId: 'lossless-speed', tSec: 0 });
+    expect(lastScreenshotParams).toEqual({ format: 'png', optimizeForSpeed: true });
+  });
 
   it('reports page reuse independently of total captures and allows diagnostics reset', async () => {
     captureDiagnostics(true)
