@@ -174,7 +174,7 @@ export class SourceHandle {
   private onFirstFrameCb: (() => void) | null = null;
   private firedFirstFrame = false;
   /// Total frames the decoder has emitted since the last reset.
-  /// Drives the first-frame software-fallback heuristic.
+  /// Included in terminal-error recovery diagnostics.
   private outputFrameCount = 0;
   /// True once we've reconfigured with `hardwareAcceleration:
   /// 'prefer-software'`. Prevents repeated downgrade attempts when
@@ -371,6 +371,10 @@ export class SourceHandle {
       },
       error: (e: unknown) => {
         if (this.decoder !== dec) return;
+        // WebCodecs invokes error only after closing this codec. It is not
+        // a recoverable dropped-frame notification (bitmap conversion errors
+        // above remain drop-and-continue). Earlier outputs do not rule out a
+        // later hardware surface/import failure; retry software only once.
         const err = e instanceof Error ? e : new Error(String(e));
         // eslint-disable-next-line no-console
         console.error(`[weftcut/pixi] decoder ${this.mediaId} error:`, err.message);
@@ -378,6 +382,7 @@ export class SourceHandle {
           err,
           outputFrameCount: this.outputFrameCount,
           alreadyDowngraded: this.downgraded,
+          retryMidstreamHardware: true,
           mediaId: this.mediaId,
           log: (msg) => {
             void logEmit({
