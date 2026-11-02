@@ -43,6 +43,7 @@ describe("SwTransport", () => {
     const t = new SwTransport();
     const got = vi.fn(); t.onFrame(got);
     await t.open({ streamId: "s1", path: "C:/x.mov" });
+    expect(api.onFrame).toHaveBeenCalledWith(expect.any(Function), "s1");
     t.requestFrameAt(500_000); t.requestFrameAt(0);
     const f = { streamId: "s1", data: new Uint8Array(6), width: 2, height: 2,
       ptsUs: 0, durUs: 33_333, requestId: 2, receipt: 1 };

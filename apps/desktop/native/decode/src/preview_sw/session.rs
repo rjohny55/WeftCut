@@ -214,11 +214,26 @@ struct PumpCursor {
 }
 
 impl PumpCursor {
+    /// A cooperative GOP catch-up may be far behind the playing clock. Its
+    /// next nearby forward demand must keep walking that GOP, not seek back to
+    /// the same keyframe on every render tick. Large jumps and backward seeks
+    /// still re-anchor; request generations additionally invalidate this state.
+    fn can_continue(&self, target_us: i64) -> bool {
+        self.last_target_us.is_some_and(|last| {
+            target_us == last
+                || (target_us > last
+                    && (target_us.saturating_sub(self.frontier_us) <= FORWARD_CONTINUE_US
+                        || (self.needs_resume
+                            && target_us.saturating_sub(last) <= FORWARD_CONTINUE_US)))
+        })
+    }
+
     /// Forget where the decoder is, so the next request — forward or not — seeks
     /// before it decodes. Used after a seek/decode failure: the stream's position
     /// is undefined at that point, and continuing from it would deliver frames
     /// from the wrong place.
     fn invalidate(&mut self) {
+        self.needs_resume = false;
         self.pending = None;
         self.last_target_us = None;
         self.ended = false;
@@ -275,8 +290,9 @@ fn robust_seek_and_probe(
 /// already delivered.
 ///
 /// A FORWARD request (target at/after the last one, and no further than
-/// [`FORWARD_CONTINUE_US`] past the decode frontier) resumes on the cursor's
-/// stashed frame and walks the stream — no seek, no re-decode, so a playing
+/// [`FORWARD_CONTINUE_US`] past the decode frontier, or a nearby forward target
+/// during cooperative catch-up) resumes on the cursor's stashed frame and
+/// walks the stream — no seek, no re-decode, so a playing
 /// timeline costs exactly the frames it displays. Anything else (backward scrub,
 /// a long forward jump, the first request) seeks to the keyframe at/before the
 /// target and discards the GOP prefix as references.
@@ -298,23 +314,12 @@ fn serve_request(
     flow: &PreviewFlow,
     request_id: u32,
 ) {
+    let forward = cursor.can_continue(target_us);
     cursor.needs_resume = false;
     if !flow.current(request_id) {
         return;
     }
     let deadline = Instant::now() + Duration::from_millis(8);
-    // Saturating, as the GPU twin is at every equivalent site: `target_us`
-    // arrives as `f64 as i64` from napi, so an absurd JS value sits at the i64
-    // extremes, where plain `-` panics in debug and wraps (misclassifying
-    // forward/backward) in release.
-    let forward = cursor.last_target_us.is_some_and(|lt| {
-        // A cooperative yield can leave a long GOP's frontier far behind the
-        // SAME target. Resuming that target must never seek back to its keyframe.
-        target_us == lt
-            || (target_us > lt
-                && target_us.saturating_sub(cursor.frontier_us) <= FORWARD_CONTINUE_US)
-    });
-
     // Forward past a drained stream: there is nothing left to decode and the
     // consumer was already told. Re-seeking to rediscover EOF is the tail cost
     // this avoids on every tick that sits past the end of a clip.
@@ -385,7 +390,7 @@ fn serve_request(
                 if shutdown.load(Ordering::Acquire) {
                     return;
                 }
-                match stream.next_frame() {
+                match stream.next_frame_for_preview(target_us) {
                     Ok(Some(f)) => {
                         cursor.frontier_us = f.pts_us;
                         f
@@ -900,6 +905,37 @@ impl PreviewSwRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cooperative_catchup_follows_nearby_playback_without_reseeking_old_keyframe() {
+        let mut cursor = PumpCursor {
+            needs_resume: true,
+            last_target_us: Some(92_400_000),
+            frontier_us: 200_000,
+            ..Default::default()
+        };
+        // Index-less VP8 can land at zero for a target ninety seconds in.
+        // Each UI tick moves the target while the same GOP is still decoding.
+        for target in [92_433_333, 92_466_667, 92_500_000] {
+            assert!(cursor.can_continue(target));
+            cursor.last_target_us = Some(target);
+            cursor.frontier_us += 200_000;
+        }
+        assert!(!cursor.can_continue(92_000_000), "backward seek must reset");
+        assert!(
+            !cursor.can_continue(100_000_000),
+            "real forward jump must reset"
+        );
+        cursor.needs_resume = false;
+        assert!(
+            !cursor.can_continue(92_533_333),
+            "ordinary distant seek stays bounded"
+        );
+        cursor.needs_resume = true;
+        cursor.invalidate(); // same path as a superseding request generation
+        assert!(!cursor.can_continue(92_533_333));
+        assert!(!cursor.needs_resume);
+    }
     use crate::test_wait::wait_for;
     use std::sync::{Arc, Mutex};
 
