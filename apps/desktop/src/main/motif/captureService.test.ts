@@ -28,6 +28,57 @@ function fixture(enabled = true) {
 }
 
 describe('Motif capture and persistence', () => {
+  it('qualifies preview independently, never changes mandatory bakes or exports', async () => {
+    const h = fixture(false), previewReady = vi.fn(async () => true);
+    const previewCopy = vi.fn(async () => ({ kind: 'bitmap' as const, token: 'preview' }));
+    const service = new MotifCaptureService({ ...h.deps, previewReady, previewCopy, previewTexture: h.deps.texture }, false);
+    const { bake: _bake, ...request } = args;
+    expect(await service.capture(owner, request)).toMatchObject({ kind: 'bitmap', persisted: false });
+    expect(previewCopy).toHaveBeenCalledOnce();
+    await service.capture(owner, args);
+    await service.capture(owner, request, () => true, 71);
+    expect(previewReady).toHaveBeenCalledOnce();
+    expect(h.deps.png).toHaveBeenCalledTimes(2);
+  });
+  it('falls back after a preview import failure until explicit reset', async () => {
+    const h = fixture(false), previewFailed = vi.fn();
+    const previewCopy = vi.fn(async () => { throw new Error('unsupported import') });
+    const service = new MotifCaptureService({ ...h.deps, previewReady: async () => true,
+      previewCopy, previewTexture: h.deps.texture, previewFailed }, false);
+    const { bake: _bake, ...request } = args;
+    expect(await service.capture(owner, request)).toMatchObject({ kind: 'png' });
+    await service.capture(owner, request);
+    expect(previewCopy).toHaveBeenCalledOnce(); expect(previewFailed).toHaveBeenCalledOnce();
+    service.resetPreviewGpu(); await service.capture(owner, request);
+    expect(previewCopy).toHaveBeenCalledTimes(2);
+  });
+  it('does not transfer stale preview texture after a slow qualification', async () => {
+    const h = fixture(false); let current = true;
+    const previewCopy = vi.fn();
+    const service = new MotifCaptureService({ ...h.deps, previewReady: async () => { current = false; return true },
+      previewCopy, previewTexture: h.deps.texture }, false);
+    const { bake: _bake, ...request } = args;
+    await expect(service.capture(owner, request, () => current)).rejects.toThrow('superseded');
+    expect(previewCopy).not.toHaveBeenCalled(); expect(h.deps.png).not.toHaveBeenCalled();
+  });
+  it('keeps preview GPU selection on content errors instead of retrying the same broken script as PNG', async () => {
+    const h = fixture(false), previewFailed = vi.fn();
+    const previewTexture = vi.fn(async () => { throw new Error('bad content') });
+    const service = new MotifCaptureService({ ...h.deps, isContentFailure: () => true,
+      previewReady: async () => true, previewTexture, previewFailed,
+      previewCopy: async () => ({ kind: 'bitmap', token: 'unused' }) }, false);
+    const { bake: _bake, ...request } = args;
+    await expect(service.capture(owner, request)).rejects.toThrow('bad content');
+    expect(previewFailed).not.toHaveBeenCalled(); expect(h.deps.png).not.toHaveBeenCalled();
+  });
+  it('keeps preview PNG exact when qualification declines', async () => {
+    const h = fixture(false), previewTexture = vi.fn();
+    const service = new MotifCaptureService({ ...h.deps, previewReady: async () => false, previewTexture,
+      previewCopy: async () => ({ kind: 'bitmap', token: 'unused' }) }, false);
+    const { bake: _bake, ...request } = args;
+    expect(await service.capture(owner, request)).toMatchObject({ kind: 'png', bytes: Buffer.from('png') });
+    expect(previewTexture).not.toHaveBeenCalled();
+  });
   it('does not deliver an old document capture to its replacement or disable GPU capture', async () => {
     const h = fixture(); const { bake: _bake, ...preview } = args;
     let current = true;

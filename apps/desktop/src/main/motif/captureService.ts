@@ -1,7 +1,7 @@
 import type { OffscreenSharedTexture, WebContents } from 'electron'
 import type { CaptureArgs } from './capture'
 import type { MotifFrameStore, FrameWriter } from './frameStore'
-import type { MotifCacheAddress, MotifTextureFrame, StoredMotifFrame } from '../../shared/motifs/frameTransport'
+import type { MotifCacheAddress, MotifTextureFrame, MotifBitmapFrame, StoredMotifFrame } from '../../shared/motifs/frameTransport'
 import { CAPTURE_SUPERSEDED_MESSAGE, MotifCaptureTimeoutError } from '../../shared/motifs/captureErrors'
 import { reserveResources } from '../resources'
 import { isResourceCapacityError } from '../../shared/resource-policy'
@@ -21,6 +21,10 @@ export interface CaptureServiceDeps {
   store: MotifFrameStore
   texture: (args: CaptureArgs, consume: (texture: OffscreenSharedTexture) => Promise<StoredMotifFrame>, key?: string, high?: boolean, isCurrent?: () => boolean) => Promise<StoredMotifFrame>
   png: (args: CaptureArgs, key?: string, high?: boolean, isCurrent?: () => boolean) => Promise<string>
+  previewTexture?: CaptureServiceDeps['texture']
+  previewCopy?: (owner: WebContents, texture: OffscreenSharedTexture) => Promise<MotifBitmapFrame>
+  previewReady?: (owner: WebContents) => Promise<boolean>
+  previewFailed?: () => void
   copy: ((owner: WebContents, texture: OffscreenSharedTexture, finalizationId?: number) => Promise<MotifTextureFrame>) | null
   createEncoder: (() => TextureEncoder) | null
   setTextureEnabled: (enabled: boolean) => void
@@ -54,12 +58,15 @@ export class MotifCaptureService {
   private useTexture: boolean
   private encoder: TextureEncoder | null = null
   private encoderFailed = false
+  private previewGpuFailed = false
   private jobs = new Map<string, { attach: (address: MotifCacheAddress) => void }>()
   private readonly workspaceJobs = new WeakMap<MotifFrameStore, WorkspaceJobs>()
   constructor(private readonly deps: CaptureServiceDeps, enabled: boolean) {
     this.useTexture = enabled && !!(deps.copy || deps.createEncoder)
     deps.setTextureEnabled(this.useTexture)
   }
+
+  resetPreviewGpu(): void { this.previewGpuFailed = false }
 
   /** Only a failure of the shared-texture output itself may switch the session
    * to PNG. A disk write, a resource refusal, a superseded request, the Motif's
@@ -251,6 +258,25 @@ export class MotifCaptureService {
         const stored = await store.has(cache.hash, cache.frame).catch(() => false)
         if (!isCurrent()) throw new Error(CAPTURE_SUPERSEDED_MESSAGE)
         if (stored && (!destinationAddress || sameAddress(cache, destinationAddress))) return storedFrame()
+      }
+      if (finalizationId === undefined && !destination && !this.previewGpuFailed
+        && this.deps.previewTexture && this.deps.previewCopy && this.deps.previewReady) {
+        // No background writer may attach after selecting a bitmap-only lane.
+        // Persistence consumers independently produce their exact cache frame.
+        acceptingBake = false
+        try {
+          const ready = await this.deps.previewReady(owner)
+          if (!isCurrent()) throw new Error(CAPTURE_SUPERSEDED_MESSAGE)
+          if (ready) return await this.deps.previewTexture(args, async texture => {
+            if (!isCurrent()) throw new Error(CAPTURE_SUPERSEDED_MESSAGE)
+            return { ...await this.deps.previewCopy!(owner, texture), persisted: false }
+          }, key, high, isCurrent)
+        } catch (error) {
+          if (this.keepsTexturePath(args, error, false)) throw error
+          this.previewGpuFailed = true
+          this.deps.previewFailed?.()
+          console.warn('[weftcut/motif] Preview GPU snapshot unavailable; using exact PNG fallback:', error)
+        }
       }
       if (this.useTexture && this.deps.copy) {
         try {
